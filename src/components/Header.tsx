@@ -24,7 +24,7 @@ export function Header({ activeTab, onTab }: Props) {
     <header className="app-header">
       <div className="app-header__top">
         <div className="app-header__brand">
-          <MeisterMark size={30} strokeWidth={6} className="app-header__mark" />
+          <MeisterMark size={32} className="app-header__mark" />
           <span className="app-header__brand-text">
             Meisterweg
             <small>FC Manager Journal</small>

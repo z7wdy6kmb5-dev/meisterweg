@@ -31,6 +31,13 @@ const migrations: Record<number, MigrationFn> = {
       if (!rec.kind) rec.kind = 'departure';
     });
   },
+  // 3: TeamRecord の区分「欧州カップ」を「大陸間クラブ選手権」へ改称。
+  3: async () => {
+    await db.teamRecords.toCollection().modify((r) => {
+      const rec = r as { competition_type?: string };
+      if (rec.competition_type === '欧州カップ') rec.competition_type = '大陸間クラブ選手権';
+    });
+  },
 };
 
 /**

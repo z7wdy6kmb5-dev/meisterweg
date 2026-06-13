@@ -9,6 +9,8 @@ import {
   type Transfer,
   type TeamRecord,
   type SeasonMemo,
+  type Constraint,
+  type ConstraintTemplateKey,
   type CompetitionType,
   type MemoMonth,
   type Position,
@@ -500,6 +502,7 @@ export interface TeamRecordInput {
   competition_type: CompetitionType;
   competition_name: string;
   final_position: string;
+  league_phase_position: string;
   wins: number;
   draws: number;
   losses: number;
@@ -525,10 +528,14 @@ export async function deleteTeamRecord(id: string): Promise<void> {
 }
 
 function normalizeRecord(input: TeamRecordInput): Omit<TeamRecord, 'id' | 'season_id'> {
+  // リーグは到達ラウンド/リーグフェーズ順位を持たない等、区分で不要な項目は空に。
+  const isLeague = input.competition_type === 'リーグ';
+  const isInter = input.competition_type === '大陸間クラブ選手権';
   return {
     competition_type: input.competition_type,
     competition_name: input.competition_name.trim(),
-    final_position: input.final_position.trim(),
+    final_position: isLeague ? input.final_position.trim() : input.final_position.trim(), // リーグ=順位 / カップ=到達ラウンド
+    league_phase_position: isInter ? input.league_phase_position.trim() : '',
     wins: input.wins,
     draws: input.draws,
     losses: input.losses,
@@ -555,4 +562,44 @@ export async function upsertSeasonMemo(seasonId: string, month: MemoMonth, body:
   } else if (trimmed.trim() !== '') {
     await db.seasonMemos.add({ id: uuid(), season_id: seasonId, month, body: trimmed });
   }
+}
+
+// ============================================================
+// 段階6: 縛り（Constraint）
+// ============================================================
+
+export function listConstraints(careerId: string): Promise<Constraint[]> {
+  return db.constraints.where('career_id').equals(careerId).toArray();
+}
+
+export async function createConstraint(
+  careerId: string, templateKey: ConstraintTemplateKey, isAuto: boolean,
+  params: Record<string, unknown>, penalty: string,
+): Promise<void> {
+  await db.constraints.add({
+    id: uuid(),
+    career_id: careerId,
+    template_key: templateKey,
+    is_auto: isAuto,
+    params,
+    penalty: penalty.trim(),
+    manual_checked: false,
+    enabled: true,
+  });
+}
+
+export async function updateConstraint(id: string, patch: Partial<Constraint>): Promise<void> {
+  await db.constraints.update(id, patch);
+}
+
+export async function deleteConstraint(id: string): Promise<void> {
+  await db.constraints.delete(id);
+}
+
+/** 自動判定に必要な選手・移籍データをまとめて取得。 */
+export async function getConstraintContext(careerId: string): Promise<{ players: Player[]; transfers: Transfer[] }> {
+  const players = await listPlayers(careerId);
+  const ids = players.map((p) => p.id);
+  const transfers = await db.transfers.where('player_id').anyOf(ids).toArray();
+  return { players, transfers };
 }
