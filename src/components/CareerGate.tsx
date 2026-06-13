@@ -5,6 +5,7 @@ import { useApp } from '../AppContext';
 import { NewCareerModal } from './NewCareerModal';
 import { DataNotice } from './DataNotice';
 import { ThemePicker } from './ThemePicker';
+import { Logo } from './Logo';
 
 // 起動ゲート：キャリア未選択時に表示。選択 or 新規作成でアプリ本体に入る。
 export function CareerGate() {
@@ -22,15 +23,13 @@ export function CareerGate() {
   return (
     <div className="gate">
       <div className="gate__panel">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <h1 className="gate__title">
-            <small>Meisterweg</small>
-            キャリアを選ぶ
-          </h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+          <Logo />
           <ThemePicker />
         </div>
 
         <div className="card card--pad mt-24">
+          <h2 style={{ fontSize: '1.05rem', marginBottom: 14 }}>キャリアを選ぶ</h2>
           {careers && careers.length > 0 ? (
             <div className="career-list">
               {careers.map((c) => (

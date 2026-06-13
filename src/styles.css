@@ -393,8 +393,8 @@ input:focus, select:focus, textarea:focus {
   width: 100%;
 }
 .career-row:hover { border-color: var(--mw-accent); background: var(--mw-surface-muted); }
-.career-row__name { font-weight: 650; }
-.career-row__meta { font-size: 0.8rem; color: var(--mw-text-muted); margin-top: 2px; }
+.career-row__name { display: block; font-weight: 650; }
+.career-row__meta { display: block; font-size: 0.8rem; color: var(--mw-text-muted); margin-top: 4px; }
 
 /* ---- セクション見出し ---- */
 .section-title {
@@ -559,4 +559,31 @@ table.data thead th.td-num { text-align: right; }
   background: var(--mw-surface-muted);
   border: 1px solid var(--mw-border);
   border-radius: var(--mw-radius-sm);
+}
+
+/* 起動画面のブランドロゴ */
+.brand-logo { display: flex; align-items: center; gap: 18px; }
+.brand-logo__emblem {
+  width: 72px; height: 72px; flex-shrink: 0;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.20));
+}
+.brand-logo__text { display: flex; flex-direction: column; line-height: 1; min-width: 0; }
+.brand-logo__eyebrow {
+  font-size: 0.66rem; font-weight: 700; letter-spacing: 0.34em;
+  text-transform: uppercase; color: var(--mw-text-muted); margin-bottom: 10px;
+}
+.brand-logo__word {
+  font-size: 3rem; font-weight: 800; letter-spacing: -0.03em;
+  color: var(--mw-text); line-height: 0.95;
+}
+.brand-logo__word b { color: var(--mw-accent); font-weight: 800; }
+.brand-logo__rule {
+  height: 4px; width: 72px; border-radius: 3px;
+  background: var(--mw-accent); margin-top: 12px;
+}
+.brand-logo__tag { font-size: 0.82rem; color: var(--mw-text-muted); margin-top: 10px; letter-spacing: 0.01em; }
+
+@media (max-width: 520px) {
+  .brand-logo { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .brand-logo__word { font-size: 2.3rem; }
 }

@@ -24,6 +24,13 @@ type MigrationFn = () => Promise<void>;
 /** key = 「このバージョンへ上げるための」変換。v1 は初期状態なので変換不要。 */
 const migrations: Record<number, MigrationFn> = {
   // 1: 初期スキーマ。変換なし。
+  // 2: Transfer に kind（退団/復帰）を追加。既存レコードは全て「退団(departure)」とみなす。
+  2: async () => {
+    await db.transfers.toCollection().modify((t) => {
+      const rec = t as { kind?: 'departure' | 'return' };
+      if (!rec.kind) rec.kind = 'departure';
+    });
+  },
 };
 
 /**

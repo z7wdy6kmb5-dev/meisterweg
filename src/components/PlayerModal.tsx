@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   createPlayer, updatePlayer, deletePlayer, getPlayerAggregates,
-  listTransfersForPlayer, deleteTransfer, setPlayerReturned,
+  listTransfersForPlayer, deleteTransfer,
   type PlayerInput,
 } from '../repo';
 import { useApp } from '../AppContext';
@@ -11,6 +11,7 @@ import {
   type Player, type Position, type JoinType,
 } from '../types';
 import { TransferModal } from './TransferModal';
+import { ReturnModal } from './ReturnModal';
 import { formatMoney, formatNumber } from '../format';
 
 type Mode = 'view' | 'edit' | 'new';
@@ -40,13 +41,11 @@ export function PlayerModal({ player, onClose }: Props) {
   const { currentCareer, seasons, currentSeason } = useApp();
   const [mode, setMode] = useState<Mode>(player ? 'view' : 'new');
   const [showTransfer, setShowTransfer] = useState(false);
+  const [showReturn, setShowReturn] = useState(false);
+  // このモーダルを開いている間に退団／復帰を記録したら、左下のアクションボタンを隠す。
+  const [actionTaken, setActionTaken] = useState(false);
 
-  async function handleReturn() {
-    if (!player) return;
-    if (window.confirm(`「${player.name}」を在籍（復帰）に戻します。移籍履歴は残ります。よろしいですか？`)) {
-      await setPlayerReturned(player.id);
-    }
-  }
+  const defaultSeasonId = currentSeason?.id ?? seasons[0]?.id ?? '';
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -54,17 +53,18 @@ export function PlayerModal({ player, onClose }: Props) {
         {mode === 'view' && player ? (
           <ProfileView
             player={player}
+            actionTaken={actionTaken}
             onEdit={() => setMode('edit')}
             onClose={onClose}
             onDepart={() => setShowTransfer(true)}
-            onReturn={handleReturn}
+            onReturn={() => setShowReturn(true)}
           />
         ) : (
           <PlayerForm
             player={mode === 'edit' ? player : null}
             careerId={currentCareer!.id}
             seasons={seasons}
-            defaultSeasonId={currentSeason?.id ?? seasons[0]?.id ?? ''}
+            defaultSeasonId={defaultSeasonId}
             onCancel={() => (player ? setMode('view') : onClose())}
             onSaved={() => (player ? setMode('view') : onClose())}
             onDeleted={onClose}
@@ -76,9 +76,18 @@ export function PlayerModal({ player, onClose }: Props) {
         <TransferModal
           player={player}
           seasons={seasons}
-          defaultSeasonId={currentSeason?.id ?? seasons[0]?.id ?? ''}
+          defaultSeasonId={defaultSeasonId}
           onClose={() => setShowTransfer(false)}
-          onDone={() => { setShowTransfer(false); setMode('view'); }}
+          onDone={() => { setShowTransfer(false); setActionTaken(true); setMode('view'); }}
+        />
+      )}
+      {showReturn && player && (
+        <ReturnModal
+          player={player}
+          seasons={seasons}
+          defaultSeasonId={defaultSeasonId}
+          onClose={() => setShowReturn(false)}
+          onDone={() => { setShowReturn(false); setActionTaken(true); setMode('view'); }}
         />
       )}
     </div>
@@ -86,8 +95,8 @@ export function PlayerModal({ player, onClose }: Props) {
 }
 
 // ---- プロフィール表示（4.5.3） ----
-function ProfileView({ player, onEdit, onClose, onDepart, onReturn }: {
-  player: Player; onEdit: () => void; onClose: () => void; onDepart: () => void; onReturn: () => void;
+function ProfileView({ player, actionTaken, onEdit, onClose, onDepart, onReturn }: {
+  player: Player; actionTaken: boolean; onEdit: () => void; onClose: () => void; onDepart: () => void; onReturn: () => void;
 }) {
   const { seasons } = useApp();
   const agg = useLiveQuery(() => getPlayerAggregates(player.id), [player.id]);
@@ -145,39 +154,43 @@ function ProfileView({ player, onEdit, onClose, onDepart, onReturn }: {
 
         <div className="subhead">移籍履歴</div>
         {sortedTransfers.length === 0 ? (
-          <p className="info-line">移籍記録はありません。{isOut ? '' : '在籍中の選手は下の「退団記録」から退団を登録できます。'}</p>
+          <p className="info-line">移籍記録はありません。{isOut ? '下の「復帰させる」で復帰を記録できます。' : '下の「退団記録」から退団を登録できます。'}</p>
         ) : (
           <div className="transfer-history">
-            {sortedTransfers.map((t) => (
-              <div key={t.id} className="transfer-row">
-                <div>
-                  <div className="row" style={{ gap: 8 }}>
-                    <span className="pill pill--pos">{seasonLabel(t.season_id)}</span>
-                    <span className="pill">{t.window}</span>
-                    <span className="pill">{t.type}</span>
+            {sortedTransfers.map((t) => {
+              const isReturn = t.kind === 'return';
+              return (
+                <div key={t.id} className="transfer-row">
+                  <div>
+                    <div className="row" style={{ gap: 8 }}>
+                      <span className={isReturn ? 'pill pill--active' : 'pill pill--out'}>{isReturn ? '復帰' : '退団'}</span>
+                      <span className="pill pill--pos">{seasonLabel(t.season_id)}</span>
+                      <span className="pill">{t.window}</span>
+                      <span className="pill">{t.type}</span>
+                    </div>
+                    <div className="info-line" style={{ marginTop: 4 }}>
+                      {(isReturn ? '復帰元 ' : '移籍先 ')}{t.destination || '未記入'} ・ {isReturn ? '買い戻し' : '移籍金'} {formatMoney(t.fee)} ・ 市場価値 {formatMoney(t.market_value_at_time)}
+                      {t.reason ? ` ・ ${t.reason}` : ''}
+                    </div>
                   </div>
-                  <div className="info-line" style={{ marginTop: 4 }}>
-                    {t.destination || '移籍先未記入'} ・ 移籍金 {formatMoney(t.fee)} ・ 市場価値 {formatMoney(t.market_value_at_time)}
-                    {t.reason ? ` ・ ${t.reason}` : ''}
-                  </div>
+                  <button
+                    className="btn btn--ghost"
+                    style={{ padding: '6px 10px' }}
+                    title="この記録を削除"
+                    onClick={() => { if (window.confirm('この記録を削除しますか？')) void deleteTransfer(t.id); }}
+                  >🗑</button>
                 </div>
-                <button
-                  className="btn btn--ghost"
-                  style={{ padding: '6px 10px' }}
-                  title="この記録を削除"
-                  onClick={() => { if (window.confirm('この移籍記録を削除しますか？')) void deleteTransfer(t.id); }}
-                >🗑</button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
       <div className="modal__foot">
-        {isOut ? (
+        {!actionTaken && (isOut ? (
           <button className="btn btn--ghost" onClick={onReturn} style={{ marginRight: 'auto' }}>復帰させる</button>
         ) : (
           <button className="btn btn--ghost" onClick={onDepart} style={{ marginRight: 'auto', color: 'var(--mw-danger)' }}>退団記録</button>
-        )}
+        ))}
         <button className="btn btn--ghost" onClick={onClose}>閉じる</button>
         <button className="btn btn--primary" onClick={onEdit}>編集</button>
       </div>

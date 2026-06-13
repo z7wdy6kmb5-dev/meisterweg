@@ -4,7 +4,7 @@
 // ============================================================
 
 /** 現在のスキーマバージョン。データ構造を変えたら +1 し、migrations に処理を追加する。 */
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 // ---- enum 系（リテラル union として定義） ----
 
@@ -97,16 +97,18 @@ export interface SeasonStats {
   // ovr_change は保存せず、前シーズン end_ovr との差分で算出（表示時計算）
 }
 
-// ---- 2.5 Transfer（退団記録専用・履歴） ----
+// ---- 2.5 Transfer（退団／復帰の記録・履歴） ----
 export interface Transfer {
   id: string;
   player_id: string;
-  season_id: string;            // 退団シーズン
+  /** 退団=departure / 復帰=return。復帰は移籍タブには出さず、選手履歴のみに表示。 */
+  kind: 'departure' | 'return';
+  season_id: string;            // 退団／復帰シーズン
   window: TransferWindow;       // 夏 / 冬
   type: TransferType;           // 移籍 / フリー
-  fee: number;                  // 移籍金（€）
-  market_value_at_time: number; // 退団時市場価値
-  destination: string;
+  fee: number;                  // 移籍金／買い戻し額（€）
+  market_value_at_time: number; // 退団／復帰時の市場価値
+  destination: string;          // 退団=移籍先 / 復帰=復帰元
   reason: string;
 }
 
