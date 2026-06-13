@@ -7,6 +7,10 @@ import {
   type Player,
   type SeasonStats,
   type Transfer,
+  type TeamRecord,
+  type SeasonMemo,
+  type CompetitionType,
+  type MemoMonth,
   type Position,
   type JoinType,
   type PlayerStatus,
@@ -486,4 +490,69 @@ export async function getTransferRows(careerId: string, seasonId: string): Promi
     .filter((r) => r.player);
   rows.sort((a, b) => b.order - a.order || a.player.name.localeCompare(b.player.name, 'ja'));
   return rows;
+}
+
+// ============================================================
+// 段階5: チーム成績（TeamRecord）／シーズンメモ（SeasonMemo）
+// ============================================================
+
+export interface TeamRecordInput {
+  competition_type: CompetitionType;
+  competition_name: string;
+  final_position: string;
+  wins: number;
+  draws: number;
+  losses: number;
+  goals_for: number;
+  goals_against: number;
+  note: string;
+}
+
+export function listTeamRecords(seasonId: string): Promise<TeamRecord[]> {
+  return db.teamRecords.where('season_id').equals(seasonId).toArray();
+}
+
+export async function createTeamRecord(seasonId: string, input: TeamRecordInput): Promise<void> {
+  await db.teamRecords.add({ id: uuid(), season_id: seasonId, ...normalizeRecord(input) });
+}
+
+export async function updateTeamRecord(id: string, input: TeamRecordInput): Promise<void> {
+  await db.teamRecords.update(id, normalizeRecord(input));
+}
+
+export async function deleteTeamRecord(id: string): Promise<void> {
+  await db.teamRecords.delete(id);
+}
+
+function normalizeRecord(input: TeamRecordInput): Omit<TeamRecord, 'id' | 'season_id'> {
+  return {
+    competition_type: input.competition_type,
+    competition_name: input.competition_name.trim(),
+    final_position: input.final_position.trim(),
+    wins: input.wins,
+    draws: input.draws,
+    losses: input.losses,
+    goals_for: input.goals_for,
+    goals_against: input.goals_against,
+    note: input.note.trim(),
+  };
+}
+
+// ---- シーズンメモ（月別） ----
+
+export function listSeasonMemos(seasonId: string): Promise<SeasonMemo[]> {
+  return db.seasonMemos.where('season_id').equals(seasonId).toArray();
+}
+
+/** 月別メモを保存（無ければ作成、空文字なら削除してすっきり保つ）。 */
+export async function upsertSeasonMemo(seasonId: string, month: MemoMonth, body: string): Promise<void> {
+  const existing = await db.seasonMemos
+    .where('[season_id+month]').equals([seasonId, month]).first();
+  const trimmed = body;
+  if (existing) {
+    if (trimmed.trim() === '') await db.seasonMemos.delete(existing.id);
+    else await db.seasonMemos.update(existing.id, { body: trimmed });
+  } else if (trimmed.trim() !== '') {
+    await db.seasonMemos.add({ id: uuid(), season_id: seasonId, month, body: trimmed });
+  }
 }

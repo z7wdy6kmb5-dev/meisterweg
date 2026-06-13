@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../AppContext';
 import { ThemePicker } from './ThemePicker';
+import { MeisterMark } from './Logo';
 import { NewSeasonModal } from './NewSeasonModal';
 import { SeasonManageModal } from './SeasonManageModal';
 import { TABS, type TabKey } from '../tabs';
@@ -23,8 +24,11 @@ export function Header({ activeTab, onTab }: Props) {
     <header className="app-header">
       <div className="app-header__top">
         <div className="app-header__brand">
-          Meisterweg
-          <small>FC Manager Journal</small>
+          <MeisterMark size={30} strokeWidth={6} className="app-header__mark" />
+          <span className="app-header__brand-text">
+            Meisterweg
+            <small>FC Manager Journal</small>
+          </span>
         </div>
 
         <div className="app-header__career">

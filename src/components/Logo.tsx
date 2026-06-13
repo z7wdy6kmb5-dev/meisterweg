@@ -1,30 +1,60 @@
-// Meisterweg ＝ ドイツ語で「マイスター（名匠）への道」。
-// クラブのエンブレム風バッジに「頂点（星）へ続く道」を描き、意味（道／頂点）を表現。
-export function Logo() {
+// Meisterweg ロゴ。ユーザー提供のロゴ（角張ったアウトライン「M」＋ワードマーク）を
+// クリーンな SVG／テキストで再現。stroke="currentColor" のため、テーマやヘッダーの
+// 文字色にそのまま追従する。
+//
+// - MeisterMark: アイコンのみ（角張ったアウトラインM）
+// - MeisterWordmark: 文字のみ（Meisterweg）
+// - Logo: アイコン＋文字のロックアップ（stacked / row）
+
+export function MeisterMark({ size = 40, className = '', strokeWidth = 5 }: {
+  size?: number; className?: string; strokeWidth?: number;
+}) {
   return (
-    <div className="brand-logo">
-      <svg className="brand-logo__emblem" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-        {/* バッジ（クレスト風） */}
-        <path
-          d="M32 4 L55 13 V31 C55 46 45 55 32 60 C19 55 9 46 9 31 V13 Z"
-          fill="var(--mw-accent)"
-        />
-        {/* 頂点へ続く道（台形） */}
-        <path d="M26 49 L38 49 L34.5 23 L29.5 23 Z" fill="rgba(255,255,255,0.18)" />
-        {/* 道のセンターライン（破線） */}
-        <line x1="32" y1="48" x2="32" y2="25" stroke="rgba(255,255,255,0.92)" strokeWidth="2.4" strokeDasharray="3 4" strokeLinecap="round" />
-        {/* 頂点の星 */}
-        <path
-          d="M32 8 L33.41 12.06 L37.71 12.15 L34.28 14.74 L35.53 18.85 L32 16.4 L28.47 18.85 L29.72 14.74 L26.29 12.15 L30.59 12.06 Z"
-          fill="#ffffff"
-        />
-      </svg>
-      <div className="brand-logo__text">
-        <span className="brand-logo__eyebrow">Football Manager Journal</span>
-        <span className="brand-logo__word">MEISTER<b>WEG</b></span>
-        <span className="brand-logo__rule" />
-        <span className="brand-logo__tag">マイスターへの道 — 監督キャリア記録</span>
-      </div>
-    </div>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 100 100"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinejoin="round"
+      strokeLinecap="round"
+      aria-hidden
+    >
+      {/* 外側シルエット（鋭いピーク＋先細りの脚） */}
+      <path d="M8 90 L4 12 L17 6 L50 50 L83 6 L96 12 L92 90" />
+      {/* 内側のV */}
+      <path d="M20 30 L50 60 L80 30" />
+      {/* 内側の縦エッジ（脚の内側） */}
+      <path d="M20 30 L22 90" />
+      <path d="M80 30 L78 90" />
+      {/* 内側の縦バー */}
+      <path d="M46 58 L35 58 L33 90" />
+      <path d="M54 58 L65 58 L67 90" />
+    </svg>
+  );
+}
+
+export function MeisterWordmark({ className = '' }: { className?: string }) {
+  return <span className={`mw-wordmark ${className}`}>Meisterweg</span>;
+}
+
+// アイコン＋文字。variant でレイアウトを切り替え。
+export function Logo({ variant = 'stacked' }: { variant?: 'stacked' | 'row' }) {
+  if (variant === 'row') {
+    return (
+      <span className="mw-logo mw-logo--row">
+        <MeisterMark size={34} strokeWidth={6} className="mw-logo__mark" />
+        <MeisterWordmark />
+      </span>
+    );
+  }
+  return (
+    <span className="mw-logo mw-logo--stacked">
+      <MeisterMark size={84} strokeWidth={4} className="mw-logo__mark" />
+      <MeisterWordmark className="mw-wordmark--lg" />
+      <span className="mw-logo__tag">マイスターへの道 — 監督キャリア記録</span>
+    </span>
   );
 }

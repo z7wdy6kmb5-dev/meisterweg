@@ -78,12 +78,19 @@ input:focus, select:focus, textarea:focus {
   min-width: 0;
 }
 .app-header__brand {
-  font-size: 1.15rem;
-  font-weight: 750;
-  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 11px;
   white-space: nowrap;
 }
-.app-header__brand small {
+.app-header__mark { flex-shrink: 0; display: block; color: var(--mw-on-primary); }
+.app-header__brand-text {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.005em;
+  line-height: 1.05;
+}
+.app-header__brand-text small {
   display: block;
   font-size: 0.62rem;
   font-weight: 600;
@@ -185,7 +192,7 @@ input:focus, select:focus, textarea:focus {
 
 /* 狭幅: インラインのアクションを隠してハンバーガーに集約、ラベル類も省略 */
 @media (max-width: 820px) {
-  .app-header__brand small { display: none; }
+  .app-header__brand-text small { display: none; }
   .header-actions { display: none; }
   .header-menu-btn { display: inline-flex; }
   .season-label { display: none; }
@@ -561,29 +568,57 @@ table.data thead th.td-num { text-align: right; }
   border-radius: var(--mw-radius-sm);
 }
 
-/* 起動画面のブランドロゴ */
-.brand-logo { display: flex; align-items: center; gap: 18px; }
-.brand-logo__emblem {
-  width: 72px; height: 72px; flex-shrink: 0;
-  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.20));
+/* 起動画面・ヘッダーのブランドロゴ */
+.mw-logo { display: inline-flex; }
+.mw-logo--stacked { flex-direction: column; align-items: flex-start; gap: 6px; }
+.mw-logo--row { flex-direction: row; align-items: center; gap: 10px; }
+.mw-logo__mark { flex-shrink: 0; display: block; }
+.mw-logo--stacked .mw-logo__mark { filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.20)); }
+
+.mw-wordmark {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: currentColor;
+  font-size: 1.2rem;
+  line-height: 1;
 }
-.brand-logo__text { display: flex; flex-direction: column; line-height: 1; min-width: 0; }
-.brand-logo__eyebrow {
-  font-size: 0.66rem; font-weight: 700; letter-spacing: 0.34em;
-  text-transform: uppercase; color: var(--mw-text-muted); margin-bottom: 10px;
-}
-.brand-logo__word {
-  font-size: 3rem; font-weight: 800; letter-spacing: -0.03em;
-  color: var(--mw-text); line-height: 0.95;
-}
-.brand-logo__word b { color: var(--mw-accent); font-weight: 800; }
-.brand-logo__rule {
-  height: 4px; width: 72px; border-radius: 3px;
-  background: var(--mw-accent); margin-top: 12px;
-}
-.brand-logo__tag { font-size: 0.82rem; color: var(--mw-text-muted); margin-top: 10px; letter-spacing: 0.01em; }
+.mw-wordmark--lg { font-size: 2.6rem; color: var(--mw-text); margin-top: 6px; }
+.mw-logo__tag { font-size: 0.82rem; color: var(--mw-text-muted); margin-top: 6px; letter-spacing: 0.01em; }
 
 @media (max-width: 520px) {
-  .brand-logo { flex-direction: column; align-items: flex-start; gap: 12px; }
-  .brand-logo__word { font-size: 2.3rem; }
+  .mw-wordmark--lg { font-size: 2rem; }
+  .mw-logo--stacked .mw-logo__mark { width: 64px; height: 64px; }
 }
+
+/* 段階5: シーズンメモ（月別カード） */
+.memo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.memo-card {
+  background: var(--mw-surface);
+  border: 1px solid var(--mw-border);
+  border-radius: var(--mw-radius);
+  box-shadow: var(--mw-shadow);
+  overflow: hidden;
+}
+.memo-card__month {
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--mw-border);
+  border-left: 4px solid var(--mw-secondary);
+  background: var(--mw-surface-muted);
+}
+.memo-card__body {
+  width: 100%;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  padding: 12px 14px;
+  resize: vertical;
+  line-height: 1.6;
+  font-size: 0.9rem;
+}
+.memo-card__body:focus { outline: none; box-shadow: inset 0 0 0 2px var(--mw-accent); }
