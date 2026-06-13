@@ -5,6 +5,7 @@ import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { PlayersPage } from './components/PlayersPage';
 import { StatsPage } from './components/StatsPage';
+import { TransfersPage } from './components/TransfersPage';
 import { PlaceholderPage } from './components/PlaceholderPage';
 import { TABS, type TabKey } from './tabs';
 
@@ -25,6 +26,7 @@ export function App() {
       case 'dashboard': return <Dashboard />;
       case 'players': return <PlayersPage />;
       case 'stats': return <StatsPage />;
+      case 'transfers': return <TransfersPage />;
       default: return <PlaceholderPage label={tabDef.label} phase={tabDef.phase} />;
     }
   }

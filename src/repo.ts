@@ -6,6 +6,7 @@ import {
   type Season,
   type Player,
   type SeasonStats,
+  type Transfer,
   type Position,
   type JoinType,
   type PlayerStatus,
@@ -385,4 +386,84 @@ export async function upsertSeasonStat(
       ...patch,
     });
   }
+}
+
+// ============================================================
+// 段階4: 移籍（退団記録・復帰・履歴）
+// ============================================================
+
+export interface TransferInput {
+  season_id: string;
+  window: Transfer['window'];
+  type: Transfer['type'];
+  fee: number;
+  market_value_at_time: number;
+  destination: string;
+  reason: string;
+}
+
+/**
+ * 退団を記録する。Transfer を1件作成し、選手のステータスを「退団」に、
+ * レンタル中フラグを解除する（3-4 の退団モーダル連動）。
+ */
+export async function recordDeparture(playerId: string, input: TransferInput): Promise<void> {
+  await db.transaction('rw', db.transfers, db.players, async () => {
+    await db.transfers.add({
+      id: uuid(),
+      player_id: playerId,
+      season_id: input.season_id,
+      window: input.window,
+      type: input.type,
+      fee: input.fee,
+      market_value_at_time: input.market_value_at_time,
+      destination: input.destination.trim(),
+      reason: input.reason.trim(),
+    });
+    await db.players.update(playerId, { current_status: '退団', is_on_loan: false });
+  });
+}
+
+/** 復帰させる。ステータスを「在籍（復帰）」に戻す。移籍記録は履歴として残す。 */
+export async function setPlayerReturned(playerId: string): Promise<void> {
+  await db.players.update(playerId, { current_status: '在籍（復帰）' });
+}
+
+export function listTransfersForPlayer(playerId: string): Promise<Transfer[]> {
+  return db.transfers.where('player_id').equals(playerId).toArray();
+}
+
+export async function deleteTransfer(id: string): Promise<void> {
+  await db.transfers.delete(id);
+}
+
+export interface TransferRow {
+  transfer: Transfer;
+  player: Player;
+  seasonLabel: string;
+  order: number;
+}
+
+/**
+ * 移籍履歴の表示用データ。seasonId='all' で全シーズン、指定で当該シーズンのみ。
+ * 新しいシーズン順 → 選手名順。
+ */
+export async function getTransferRows(careerId: string, seasonId: string): Promise<TransferRow[]> {
+  const players = await listPlayers(careerId);
+  const pmap = new Map(players.map((p) => [p.id, p]));
+  const seasons = await listSeasons(careerId);
+  const smap = new Map(seasons.map((s) => [s.id, s]));
+  const ids = players.map((p) => p.id);
+  let transfers = await db.transfers.where('player_id').anyOf(ids).toArray();
+  if (seasonId !== 'all') transfers = transfers.filter((t) => t.season_id === seasonId);
+
+  const rows: TransferRow[] = transfers
+    .map((t) => ({
+      transfer: t,
+      player: pmap.get(t.player_id)!,
+      seasonLabel: smap.get(t.season_id)?.label ?? '—',
+      order: smap.get(t.season_id)?.order ?? 0,
+    }))
+    .filter((r) => r.player);
+  rows.sort((a, b) => b.order - a.order || a.player.name.localeCompare(b.player.name, 'ja'));
+  return rows;
 }

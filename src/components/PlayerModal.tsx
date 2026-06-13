@@ -2,13 +2,15 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   createPlayer, updatePlayer, deletePlayer, getPlayerAggregates,
+  listTransfersForPlayer, deleteTransfer, setPlayerReturned,
   type PlayerInput,
 } from '../repo';
 import { useApp } from '../AppContext';
 import {
-  POSITIONS, JOIN_TYPES, PLAYER_STATUSES,
-  type Player, type Position, type JoinType, type PlayerStatus,
+  POSITIONS, JOIN_TYPES,
+  type Player, type Position, type JoinType,
 } from '../types';
+import { TransferModal } from './TransferModal';
 import { formatMoney, formatNumber } from '../format';
 
 type Mode = 'view' | 'edit' | 'new';
@@ -37,6 +39,14 @@ function sixFields(position: Position): ReadonlyArray<readonly [typeof SIX_KEYS[
 export function PlayerModal({ player, onClose }: Props) {
   const { currentCareer, seasons, currentSeason } = useApp();
   const [mode, setMode] = useState<Mode>(player ? 'view' : 'new');
+  const [showTransfer, setShowTransfer] = useState(false);
+
+  async function handleReturn() {
+    if (!player) return;
+    if (window.confirm(`「${player.name}」を在籍（復帰）に戻します。移籍履歴は残ります。よろしいですか？`)) {
+      await setPlayerReturned(player.id);
+    }
+  }
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -46,6 +56,8 @@ export function PlayerModal({ player, onClose }: Props) {
             player={player}
             onEdit={() => setMode('edit')}
             onClose={onClose}
+            onDepart={() => setShowTransfer(true)}
+            onReturn={handleReturn}
           />
         ) : (
           <PlayerForm
@@ -59,15 +71,33 @@ export function PlayerModal({ player, onClose }: Props) {
           />
         )}
       </div>
+
+      {showTransfer && player && (
+        <TransferModal
+          player={player}
+          seasons={seasons}
+          defaultSeasonId={currentSeason?.id ?? seasons[0]?.id ?? ''}
+          onClose={() => setShowTransfer(false)}
+          onDone={() => { setShowTransfer(false); setMode('view'); }}
+        />
+      )}
     </div>
   );
 }
 
 // ---- プロフィール表示（4.5.3） ----
-function ProfileView({ player, onEdit, onClose }: { player: Player; onEdit: () => void; onClose: () => void }) {
+function ProfileView({ player, onEdit, onClose, onDepart, onReturn }: {
+  player: Player; onEdit: () => void; onClose: () => void; onDepart: () => void; onReturn: () => void;
+}) {
   const { seasons } = useApp();
   const agg = useLiveQuery(() => getPlayerAggregates(player.id), [player.id]);
+  const transfers = useLiveQuery(() => listTransfersForPlayer(player.id), [player.id]);
   const joinSeason = seasons.find((s) => s.id === player.join_season_id);
+  const orderById = new Map(seasons.map((s) => [s.id, s.order]));
+  const seasonLabel = (id: string) => seasons.find((s) => s.id === id)?.label ?? '—';
+  const sortedTransfers = (transfers ?? []).slice()
+    .sort((a, b) => (orderById.get(b.season_id) ?? 0) - (orderById.get(a.season_id) ?? 0));
+  const isOut = player.current_status === '退団';
 
   return (
     <>
@@ -114,9 +144,40 @@ function ProfileView({ player, onEdit, onClose }: { player: Player; onEdit: () =
         </div>
 
         <div className="subhead">移籍履歴</div>
-        <p className="info-line">退団記録・復帰・移籍履歴は段階4で表示します。</p>
+        {sortedTransfers.length === 0 ? (
+          <p className="info-line">移籍記録はありません。{isOut ? '' : '在籍中の選手は下の「退団記録」から退団を登録できます。'}</p>
+        ) : (
+          <div className="transfer-history">
+            {sortedTransfers.map((t) => (
+              <div key={t.id} className="transfer-row">
+                <div>
+                  <div className="row" style={{ gap: 8 }}>
+                    <span className="pill pill--pos">{seasonLabel(t.season_id)}</span>
+                    <span className="pill">{t.window}</span>
+                    <span className="pill">{t.type}</span>
+                  </div>
+                  <div className="info-line" style={{ marginTop: 4 }}>
+                    {t.destination || '移籍先未記入'} ・ 移籍金 {formatMoney(t.fee)} ・ 市場価値 {formatMoney(t.market_value_at_time)}
+                    {t.reason ? ` ・ ${t.reason}` : ''}
+                  </div>
+                </div>
+                <button
+                  className="btn btn--ghost"
+                  style={{ padding: '6px 10px' }}
+                  title="この記録を削除"
+                  onClick={() => { if (window.confirm('この移籍記録を削除しますか？')) void deleteTransfer(t.id); }}
+                >🗑</button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       <div className="modal__foot">
+        {isOut ? (
+          <button className="btn btn--ghost" onClick={onReturn} style={{ marginRight: 'auto' }}>復帰させる</button>
+        ) : (
+          <button className="btn btn--ghost" onClick={onDepart} style={{ marginRight: 'auto', color: 'var(--mw-danger)' }}>退団記録</button>
+        )}
         <button className="btn btn--ghost" onClick={onClose}>閉じる</button>
         <button className="btn btn--primary" onClick={onEdit}>編集</button>
       </div>
@@ -128,7 +189,7 @@ function Box({ k, v }: { k: string; v: string }) {
   return <div className="stat-box"><div className="k">{k}</div><div className="v">{v}</div></div>;
 }
 
-function StatusPill({ status }: { status: PlayerStatus }) {
+function StatusPill({ status }: { status: Player['current_status'] }) {
   const cls = status === '退団' ? 'pill pill--out' : 'pill pill--active';
   return <span className={cls}>{status}</span>;
 }
@@ -244,11 +305,6 @@ function PlayerForm({ player, careerId, seasons, defaultSeasonId, onCancel, onSa
 
         <div className="subhead">在籍状況</div>
         <div className="field-grid">
-          <Field label="在籍ステータス">
-            <select value={f.current_status} onChange={(e) => set('current_status', e.target.value as PlayerStatus)}>
-              {PLAYER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </Field>
           <Field label="レンタル">
             <label className="row" style={{ gap: 8, height: 38, cursor: 'pointer' }}>
               <input type="checkbox" checked={f.is_on_loan} onChange={(e) => set('is_on_loan', e.target.checked)} style={{ width: 'auto' }} />
@@ -256,11 +312,9 @@ function PlayerForm({ player, careerId, seasons, defaultSeasonId, onCancel, onSa
             </label>
           </Field>
         </div>
-        {f.current_status === '退団' && (
-          <p className="info-line mt-16">
-            ※ 退団に伴う移籍記録（移籍金・移籍先・理由など）の入力は段階4で連動します。現段階ではステータスのみ設定されます。
-          </p>
-        )}
+        <p className="info-line mt-16">
+          退団・復帰はプロフィール画面の「退団記録」「復帰させる」から行います（退団時に移籍金・移籍先などの記録を残せます）。
+        </p>
       </div>
       <div className="modal__foot">
         {isEdit && <button className="btn btn--danger" onClick={remove} style={{ marginRight: 'auto' }}>削除</button>}

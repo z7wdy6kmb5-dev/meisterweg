@@ -16,7 +16,7 @@ const COLUMNS: ColDef[] = [
   { key: 'goals', label: '得点', kind: 'int' },
   { key: 'assists', label: 'アシスト', kind: 'int' },
   { key: 'avg_rating', label: '平均評価', kind: 'float' },
-  { key: 'end_ovr', label: '現OVR', kind: 'int' },
+  { key: 'end_ovr', label: '終OVR', kind: 'int' },
   { key: 'delta', label: 'OVR増減', kind: 'calc' },
 ];
 
@@ -113,7 +113,7 @@ export function StatsPage() {
           </table>
         </div>
       )}
-      <p className="info-line mt-16">現OVR・平均評価などは行ごとに保存され、OVR増減は前シーズン（初年度は加入時OVR）との差で自動計算されます。</p>
+      <p className="info-line mt-16">終OVR（シーズン終了時OVR）・平均評価などは行ごとに保存され、OVR増減は前シーズンの終OVR（初年度は加入時OVR）との差で自動計算されます。</p>
     </div>
   );
 }

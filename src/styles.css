@@ -19,9 +19,13 @@
 html, body, #root { height: 100%; margin: 0; }
 
 body {
-  background: var(--mw-bg);
+  background-color: var(--mw-bg);
+  background-image: var(--mw-body-pattern, none);
+  background-size: var(--mw-body-size, auto);
+  background-repeat: var(--mw-body-repeat, repeat);
+  background-attachment: fixed;
   color: var(--mw-text);
-  transition: background 0.25s ease, color 0.25s ease;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 /* ダークモードは影を強めて立体感を保つ */
@@ -58,14 +62,13 @@ input:focus, select:focus, textarea:focus {
 .app-shell { display: flex; flex-direction: column; min-height: 100%; }
 
 .app-header {
-  background: var(--mw-header-bg, var(--mw-primary));
-  background-color: var(--mw-primary);
+  background: var(--mw-primary);
   color: var(--mw-on-primary);
   padding: 0 20px;
   position: relative;
   /* 画面全体にテーマを効かせる「アクセントバンド」をヘッダー下端に置く */
   border-bottom: 4px solid var(--mw-secondary);
-  transition: border-color 0.25s ease;
+  transition: background 0.25s ease, border-color 0.25s ease;
 }
 .app-header__top {
   display: flex;
@@ -270,6 +273,7 @@ input:focus, select:focus, textarea:focus {
 }
 .modal {
   background: var(--mw-surface);
+  color: var(--mw-text);
   border-radius: var(--mw-radius);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
   width: 100%;
@@ -357,7 +361,7 @@ input:focus, select:focus, textarea:focus {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: var(--mw-bg);
+  background: transparent;
 }
 .gate__panel { width: 100%; max-width: 560px; }
 .gate__title {
@@ -543,3 +547,16 @@ table.data thead th.td-num { text-align: right; }
 .cell-input::-webkit-outer-spin-button,
 .cell-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .cell-input { -moz-appearance: textfield; }
+
+/* 段階4: 移籍履歴（プロフィール内） */
+.transfer-history { display: flex; flex-direction: column; gap: 8px; }
+.transfer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--mw-surface-muted);
+  border: 1px solid var(--mw-border);
+  border-radius: var(--mw-radius-sm);
+}
