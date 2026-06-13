@@ -10,11 +10,14 @@ interface Props {
   onTab: (t: TabKey) => void;
 }
 
-// ヘッダー＋タブ。キャリア名・キャリア切替・グローバルシーズンセレクタ（＋作成/管理）を常時表示。
+// ヘッダー＋タブ。広幅ではアクションをインライン表示、狭幅ではハンバーガーに集約する。
 export function Header({ activeTab, onTab }: Props) {
   const { currentCareer, seasons, currentSeason, selectCareer, selectSeason } = useApp();
   const [newSeason, setNewSeason] = useState(false);
   const [manageSeason, setManageSeason] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const closeMenu = () => setMenuOpen(false);
 
   return (
     <header className="app-header">
@@ -35,23 +38,34 @@ export function Header({ activeTab, onTab }: Props) {
 
         <div className="app-header__spacer" />
 
-        <div className="row" style={{ gap: 8 }}>
-          <label className="row" style={{ gap: 6 }}>
-            <span style={{ fontSize: '0.78rem', opacity: 0.8 }}>シーズン</span>
+        <div className="header-right">
+          <label className="season-field">
+            <span className="season-label">シーズン</span>
             <select
               className="hselect"
               value={currentSeason?.id ?? ''}
               onChange={(e) => selectSeason(e.target.value)}
               disabled={seasons.length === 0}
+              aria-label="シーズン"
             >
-              {seasons.map((s) => (
-                <option key={s.id} value={s.id}>{s.label}</option>
-              ))}
+              {seasons.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
             </select>
           </label>
-          <button className="hbtn" onClick={() => setNewSeason(true)} title="新しいシーズンを作成">＋</button>
-          <button className="hbtn" onClick={() => setManageSeason(true)} title="シーズン管理">管理</button>
-          <ThemePicker compact />
+
+          {/* 広幅: インライン */}
+          <div className="header-actions">
+            <button className="hbtn" onClick={() => setNewSeason(true)} title="新しいシーズンを作成">＋ シーズン</button>
+            <button className="hbtn" onClick={() => setManageSeason(true)} title="シーズン管理">管理</button>
+            <ThemePicker compact />
+          </div>
+
+          {/* 狭幅: ハンバーガー */}
+          <button
+            className="hbtn header-menu-btn"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label="メニュー"
+            aria-expanded={menuOpen}
+          >☰</button>
         </div>
       </div>
 
@@ -66,6 +80,21 @@ export function Header({ activeTab, onTab }: Props) {
           </button>
         ))}
       </nav>
+
+      {menuOpen && (
+        <>
+          <div className="header-menu-backdrop" onClick={closeMenu} />
+          <div className="header-menu" role="menu">
+            <button className="menu-item" onClick={() => { closeMenu(); selectCareer(null); }}>キャリアを切り替え</button>
+            <div className="menu-sep" />
+            <button className="menu-item" onClick={() => { closeMenu(); setNewSeason(true); }}>＋ 新しいシーズン</button>
+            <button className="menu-item" onClick={() => { closeMenu(); setManageSeason(true); }}>シーズン管理</button>
+            <div className="menu-sep" />
+            <label>テーマ</label>
+            <ThemePicker />
+          </div>
+        </>
+      )}
 
       {newSeason && (
         <NewSeasonModal

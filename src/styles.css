@@ -58,18 +58,21 @@ input:focus, select:focus, textarea:focus {
 .app-shell { display: flex; flex-direction: column; min-height: 100%; }
 
 .app-header {
-  background: var(--mw-primary);
+  background: var(--mw-header-bg, var(--mw-primary));
+  background-color: var(--mw-primary);
   color: var(--mw-on-primary);
   padding: 0 20px;
+  position: relative;
   /* 画面全体にテーマを効かせる「アクセントバンド」をヘッダー下端に置く */
   border-bottom: 4px solid var(--mw-secondary);
-  transition: background 0.25s ease, border-color 0.25s ease;
+  transition: border-color 0.25s ease;
 }
 .app-header__top {
   display: flex;
   align-items: center;
   gap: 20px;
   height: 60px;
+  min-width: 0;
 }
 .app-header__brand {
   font-size: 1.15rem;
@@ -80,9 +83,9 @@ input:focus, select:focus, textarea:focus {
 .app-header__brand small {
   display: block;
   font-size: 0.62rem;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.18em;
-  opacity: 0.7;
+  color: var(--mw-tertiary);
   text-transform: uppercase;
 }
 .app-header__career {
@@ -97,12 +100,13 @@ input:focus, select:focus, textarea:focus {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 .app-header__spacer { flex: 1; }
 
-/* ヘッダー上のコントロール（透過ボタン） */
+/* ヘッダー上のコントロール（明るいヘッダーでも見えるよう適応色） */
 .hbtn {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--mw-header-ctrl);
   color: var(--mw-on-primary);
   border-radius: var(--mw-radius-sm);
   padding: 7px 12px;
@@ -111,12 +115,12 @@ input:focus, select:focus, textarea:focus {
   transition: background 0.15s ease;
   white-space: nowrap;
 }
-.hbtn:hover { background: rgba(255, 255, 255, 0.26); }
+.hbtn:hover { background: var(--mw-header-ctrl-hover); }
 
 .hselect {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--mw-header-ctrl);
   color: var(--mw-on-primary);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid var(--mw-header-ctrl-border);
   border-radius: var(--mw-radius-sm);
   padding: 6px 10px;
   font-size: 0.85rem;
@@ -130,6 +134,61 @@ input:focus, select:focus, textarea:focus {
   padding: 0 16px;
   background: var(--mw-primary);
   overflow-x: auto;
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- ヘッダー右側：シーズン選択＋アクション ---- */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.season-field { display: flex; align-items: center; gap: 6px; }
+.season-label { font-size: 0.78rem; opacity: 0.85; white-space: nowrap; }
+.header-actions { display: flex; align-items: center; gap: 8px; }
+.header-menu-btn { display: none; font-size: 1.1rem; padding: 7px 11px; }
+
+/* ハンバーガーで開くドロップダウン（狭幅時） */
+.header-menu-backdrop { position: fixed; inset: 0; z-index: 40; }
+.header-menu {
+  position: absolute;
+  top: 56px;
+  right: 12px;
+  z-index: 41;
+  background: var(--mw-surface);
+  color: var(--mw-text);
+  border: 1px solid var(--mw-border);
+  border-radius: var(--mw-radius);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 200px;
+}
+.header-menu button.menu-item {
+  text-align: left;
+  padding: 9px 12px;
+  border-radius: var(--mw-radius-sm);
+  font-size: 0.9rem;
+  font-weight: 550;
+}
+.header-menu button.menu-item:hover { background: var(--mw-surface-muted); }
+.header-menu .menu-sep { height: 1px; background: var(--mw-border); margin: 2px 0; }
+.header-menu label { font-size: 0.74rem; color: var(--mw-text-muted); font-weight: 650; }
+.header-menu select { width: 100%; }
+
+/* 狭幅: インラインのアクションを隠してハンバーガーに集約、ラベル類も省略 */
+@media (max-width: 820px) {
+  .app-header__brand small { display: none; }
+  .header-actions { display: none; }
+  .header-menu-btn { display: inline-flex; }
+  .season-label { display: none; }
+}
+@media (max-width: 560px) {
+  .app-header__career .hbtn { display: none; } /* 切り替えはメニューへ */
 }
 .app-tab {
   padding: 11px 16px 13px;
@@ -467,3 +526,20 @@ table.data thead th.td-num { text-align: right; }
 }
 .modal--wide { max-width: 760px; }
 .info-line { font-size: 0.82rem; color: var(--mw-text-muted); line-height: 1.6; }
+
+/* 段階3: スタッツ表のセル内編集 */
+.cell-input {
+  width: 72px;
+  padding: 5px 8px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--mw-radius-sm);
+}
+.cell-input:hover { border-color: var(--mw-border); background: var(--mw-surface); }
+.cell-input:focus { border-color: var(--mw-accent); background: var(--mw-surface); }
+/* 数値スピナーは控えめに */
+.cell-input::-webkit-outer-spin-button,
+.cell-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.cell-input { -moz-appearance: textfield; }

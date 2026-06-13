@@ -310,3 +310,79 @@ export async function getPlayerAggregates(playerId: string): Promise<PlayerAggre
   }
   return { appearances, goals, assists, currentOvr };
 }
+
+// ============================================================
+// 段階3: シーズンスタッツ
+// ============================================================
+
+export interface StatRow {
+  player: Player;
+  stat: SeasonStats | null;
+  /** 直前シーズンの end_ovr（無ければ加入時OVR）。OVR増減の基準。 */
+  baseOvr: number | null;
+}
+
+/**
+ * 指定シーズンのスタッツ表データを組み立てる。
+ * 対象選手 = そのシーズンに stat 行を持つ、または「在籍中かつ加入シーズン≦当該シーズン」。
+ * baseOvr = その選手の当該シーズンより前で最も新しい end_ovr。無ければ join_ovr。
+ */
+export async function getSeasonStatRows(careerId: string, seasonId: string): Promise<StatRow[]> {
+  const seasons = await db.seasons.where('career_id').equals(careerId).sortBy('order');
+  const orderById = new Map(seasons.map((s) => [s.id, s.order]));
+  const curOrder = orderById.get(seasonId) ?? 0;
+
+  const players = await db.players.where('career_id').equals(careerId).toArray();
+  const seasonIds = seasons.map((s) => s.id);
+  const allStats = await db.seasonStats.where('season_id').anyOf(seasonIds).toArray();
+
+  const statsByPlayer = new Map<string, SeasonStats[]>();
+  for (const s of allStats) {
+    const arr = statsByPlayer.get(s.player_id) ?? [];
+    arr.push(s);
+    statsByPlayer.set(s.player_id, arr);
+  }
+
+  const rows: StatRow[] = [];
+  for (const p of players) {
+    const mine = statsByPlayer.get(p.id) ?? [];
+    const statHere = mine.find((s) => s.season_id === seasonId) ?? null;
+    const active = p.current_status === '在籍' || p.current_status === '在籍（復帰）';
+    const joinedBy = (orderById.get(p.join_season_id) ?? 0) <= curOrder;
+    if (!statHere && !(active && joinedBy)) continue;
+
+    // 直前の end_ovr（order が現在未満で最大、end_ovr 非 null）
+    const prev = mine
+      .filter((s) => (orderById.get(s.season_id) ?? 0) < curOrder && s.end_ovr != null)
+      .sort((a, b) => (orderById.get(b.season_id) ?? 0) - (orderById.get(a.season_id) ?? 0))[0];
+    const baseOvr = prev?.end_ovr ?? p.join_ovr;
+
+    rows.push({ player: p, stat: statHere, baseOvr });
+  }
+
+  rows.sort((a, b) => a.player.name.localeCompare(b.player.name, 'ja'));
+  return rows;
+}
+
+/**
+ * スタッツの1項目を更新（無ければ新規作成）。compound index [season_id+player_id] で同定。
+ */
+export async function upsertSeasonStat(
+  seasonId: string,
+  playerId: string,
+  patch: Partial<Omit<SeasonStats, 'id' | 'season_id' | 'player_id'>>,
+): Promise<void> {
+  const existing = await db.seasonStats
+    .where('[season_id+player_id]').equals([seasonId, playerId]).first();
+  if (existing) {
+    await db.seasonStats.update(existing.id, patch);
+  } else {
+    await db.seasonStats.add({
+      id: uuid(),
+      player_id: playerId,
+      season_id: seasonId,
+      appearances: null, goals: null, assists: null, avg_rating: null, end_ovr: null,
+      ...patch,
+    });
+  }
+}

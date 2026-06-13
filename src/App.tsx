@@ -4,6 +4,7 @@ import { CareerGate } from './components/CareerGate';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { PlayersPage } from './components/PlayersPage';
+import { StatsPage } from './components/StatsPage';
 import { PlaceholderPage } from './components/PlaceholderPage';
 import { TABS, type TabKey } from './tabs';
 
@@ -23,6 +24,7 @@ export function App() {
     switch (tab) {
       case 'dashboard': return <Dashboard />;
       case 'players': return <PlayersPage />;
+      case 'stats': return <StatsPage />;
       default: return <PlaceholderPage label={tabDef.label} phase={tabDef.phase} />;
     }
   }
