@@ -4,7 +4,7 @@
 // ============================================================
 
 /** 現在のスキーマバージョン。データ構造を変えたら +1 し、migrations に処理を追加する。 */
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 // ---- enum 系（リテラル union として定義） ----
 
@@ -138,7 +138,8 @@ export interface SeasonMemo {
 }
 
 // ---- 2.8 Constraint（縛りルール） ----
-export type ConstraintTemplateKey =
+// 組み込みテンプレートのキー。ユーザー定義（custom:*）も使えるよう、実体は string。
+export type BuiltinConstraintKey =
   // 自動判定
   | 'transfer_fee_cap'        // 移籍金上限
   | 'wage_cap'                // 給与上限
@@ -158,12 +159,16 @@ export type ConstraintTemplateKey =
   | 'scout_region'            // スカウト対象国
   | 'recruitment_route';      // 獲得ルート制限
 
+/** テンプレートキー。組み込み or 'custom:<uuid>'（ユーザー定義）。 */
+export type ConstraintTemplateKey = BuiltinConstraintKey | string;
+
 export interface Constraint {
   id: string;
   career_id: string;
   template_key: ConstraintTemplateKey;
   is_auto: boolean;           // 自動判定可能か
   params: Record<string, unknown>; // テンプレごとの設定値
+  note: string;               // 縛り内容（自由記入）
   penalty: string;            // 違反時ペナルティ（任意）
   manual_checked: boolean;    // 手動縛り用チェック状態
   enabled: boolean;

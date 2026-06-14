@@ -38,6 +38,13 @@ const migrations: Record<number, MigrationFn> = {
       if (rec.competition_type === '欧州カップ') rec.competition_type = '大陸間クラブ選手権';
     });
   },
+  // 4: Constraint に note（縛り内容の自由記入）を追加。
+  4: async () => {
+    await db.constraints.toCollection().modify((c) => {
+      const rec = c as { note?: string };
+      if (rec.note == null) rec.note = '';
+    });
+  },
 };
 
 /**

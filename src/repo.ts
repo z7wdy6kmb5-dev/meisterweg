@@ -574,7 +574,7 @@ export function listConstraints(careerId: string): Promise<Constraint[]> {
 
 export async function createConstraint(
   careerId: string, templateKey: ConstraintTemplateKey, isAuto: boolean,
-  params: Record<string, unknown>, penalty: string,
+  params: Record<string, unknown>, note: string, penalty: string,
 ): Promise<void> {
   await db.constraints.add({
     id: uuid(),
@@ -582,6 +582,7 @@ export async function createConstraint(
     template_key: templateKey,
     is_auto: isAuto,
     params,
+    note: note.trim(),
     penalty: penalty.trim(),
     manual_checked: false,
     enabled: true,
