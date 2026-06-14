@@ -9,6 +9,7 @@ import { TransfersPage } from './components/TransfersPage';
 import { RecordsPage } from './components/RecordsPage';
 import { MemoPage } from './components/MemoPage';
 import { ConstraintsPage } from './components/ConstraintsPage';
+import { ExportPage } from './components/ExportPage';
 import { PlaceholderPage } from './components/PlaceholderPage';
 import { TABS, type TabKey } from './tabs';
 
@@ -33,6 +34,7 @@ export function App() {
       case 'records': return <RecordsPage />;
       case 'memo': return <MemoPage />;
       case 'constraints': return <ConstraintsPage />;
+      case 'export': return <ExportPage />;
       default: return <PlaceholderPage label={tabDef.label} phase={tabDef.phase} />;
     }
   }

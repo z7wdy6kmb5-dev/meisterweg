@@ -16,7 +16,9 @@ import {
   type Position,
   type JoinType,
   type PlayerStatus,
+  type MeisterwegBundle,
 } from './types';
+import { isBundleVersionSupported, migrateBundleData } from './migrations';
 
 // ============================================================
 // データアクセス層（リポジトリ）
@@ -603,4 +605,102 @@ export async function getConstraintContext(careerId: string): Promise<{ players:
   const ids = players.map((p) => p.id);
   const transfers = await db.transfers.where('player_id').anyOf(ids).toArray();
   return { players, transfers };
+}
+
+// ============================================================
+// 段階7: エクスポート / インポート（JSON バンドル & Markdown）
+// ============================================================
+
+/** 指定キャリアの全データを1つのバンドルにまとめる。 */
+export async function exportCareerBundle(careerId: string): Promise<MeisterwegBundle> {
+  const career = await db.careers.get(careerId);
+  if (!career) throw new Error('career not found');
+  const seasons = await db.seasons.where('career_id').equals(careerId).toArray();
+  const players = await db.players.where('career_id').equals(careerId).toArray();
+  const playerIds = players.map((p) => p.id);
+  const seasonIds = seasons.map((s) => s.id);
+
+  const season_stats = (await db.seasonStats.where('player_id').anyOf(playerIds).toArray());
+  const transfers = await db.transfers.where('player_id').anyOf(playerIds).toArray();
+  const team_records = (await db.teamRecords.where('season_id').anyOf(seasonIds).toArray());
+  const season_memos = (await db.seasonMemos.where('season_id').anyOf(seasonIds).toArray());
+  const constraints = await db.constraints.where('career_id').equals(careerId).toArray();
+
+  return {
+    schema_version: CURRENT_SCHEMA_VERSION,
+    exported_at: new Date().toISOString(),
+    career, seasons, players, season_stats, transfers, team_records, season_memos, constraints,
+  };
+}
+
+/**
+ * バンドルを取り込み、新しいIDを振って別キャリアとして復元する。
+ * （既存データを壊さないよう常に新規キャリアとして追加する。）
+ */
+export async function importCareerBundle(bundle: MeisterwegBundle): Promise<string> {
+  if (!isBundleVersionSupported(bundle.schema_version)) {
+    throw new Error(`このファイルのバージョン(${bundle.schema_version})はサポート対象外です。アプリを更新してください。`);
+  }
+  // 旧バージョンなら現行へ変換（メモリ上）
+  migrateBundleData(bundle as unknown as {
+    schema_version: number;
+    transfers: Array<Record<string, unknown>>;
+    team_records: Array<Record<string, unknown>>;
+    constraints: Array<Record<string, unknown>>;
+  });
+
+  // ID 再割り当てマップ
+  const careerId = uuid();
+  const seasonMap = new Map<string, string>();
+  const playerMap = new Map<string, string>();
+  for (const s of bundle.seasons) seasonMap.set(s.id, uuid());
+  for (const p of bundle.players) playerMap.set(p.id, uuid());
+
+  const career: Career = {
+    ...bundle.career,
+    id: careerId,
+    name: bundle.career.name + '（インポート）',
+    schema_version: CURRENT_SCHEMA_VERSION,
+  };
+  const seasons = bundle.seasons.map((s) => ({
+    ...s, id: seasonMap.get(s.id)!, career_id: careerId,
+  }));
+  const players = bundle.players.map((p) => ({
+    ...p, id: playerMap.get(p.id)!, career_id: careerId,
+    join_season_id: seasonMap.get(p.join_season_id) ?? p.join_season_id,
+  }));
+  const season_stats = bundle.season_stats.map((st) => ({
+    ...st, id: uuid(),
+    player_id: playerMap.get(st.player_id) ?? st.player_id,
+    season_id: seasonMap.get(st.season_id) ?? st.season_id,
+  }));
+  const transfers = bundle.transfers.map((t) => ({
+    ...t, id: uuid(),
+    player_id: playerMap.get(t.player_id) ?? t.player_id,
+    season_id: seasonMap.get(t.season_id) ?? t.season_id,
+  }));
+  const team_records = bundle.team_records.map((r) => ({
+    ...r, id: uuid(), season_id: seasonMap.get(r.season_id) ?? r.season_id,
+  }));
+  const season_memos = bundle.season_memos.map((m) => ({
+    ...m, id: uuid(), season_id: seasonMap.get(m.season_id) ?? m.season_id,
+  }));
+  const constraints = bundle.constraints.map((c) => ({
+    ...c, id: uuid(), career_id: careerId,
+  }));
+
+  await db.transaction('rw',
+    [db.careers, db.seasons, db.players, db.seasonStats, db.transfers, db.teamRecords, db.seasonMemos, db.constraints],
+    async () => {
+      await db.careers.add(career);
+      await db.seasons.bulkAdd(seasons);
+      await db.players.bulkAdd(players);
+      await db.seasonStats.bulkAdd(season_stats);
+      await db.transfers.bulkAdd(transfers);
+      await db.teamRecords.bulkAdd(team_records);
+      await db.seasonMemos.bulkAdd(season_memos);
+      await db.constraints.bulkAdd(constraints);
+    });
+
+  return careerId;
 }

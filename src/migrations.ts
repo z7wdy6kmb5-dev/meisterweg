@@ -80,6 +80,29 @@ export function isBundleVersionSupported(version: number): boolean {
   return version <= CURRENT_SCHEMA_VERSION;
 }
 
+/**
+ * インポートしたバンドル（メモリ上のデータ）を現行バージョンへ変換する。
+ * DBではなくプレーンオブジェクトに対して、各バージョンの変換と同等の処理を行う。
+ */
+export function migrateBundleData(bundle: {
+  schema_version: number;
+  transfers: Array<Record<string, unknown>>;
+  team_records: Array<Record<string, unknown>>;
+  constraints: Array<Record<string, unknown>>;
+}): void {
+  const from = bundle.schema_version ?? 1;
+  if (from < 2) {
+    for (const t of bundle.transfers) if (!t.kind) t.kind = 'departure';
+  }
+  if (from < 3) {
+    for (const r of bundle.team_records) if (r.competition_type === '欧州カップ') r.competition_type = '大陸間クラブ選手権';
+  }
+  if (from < 4) {
+    for (const c of bundle.constraints) if (c.note == null) c.note = '';
+  }
+  bundle.schema_version = CURRENT_SCHEMA_VERSION;
+}
+
 /** 新規 Career 作成時に現行バージョンを刻む際のヘルパ。 */
 export function stampCurrentVersion(): Pick<Career, 'schema_version'> {
   return { schema_version: CURRENT_SCHEMA_VERSION };

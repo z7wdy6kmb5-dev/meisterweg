@@ -83,12 +83,13 @@ input:focus, select:focus, textarea:focus {
   gap: 11px;
   white-space: nowrap;
 }
-.app-header__mark { flex-shrink: 0; display: block; color: var(--mw-on-primary); }
+.app-header__mark { flex-shrink: 0; display: block; }
 .app-header__brand-text {
   font-size: 1.15rem;
   font-weight: 800;
   letter-spacing: -0.005em;
   line-height: 1.05;
+  color: #d9a93b;
 }
 .app-header__brand-text small {
   display: block;
@@ -568,28 +569,30 @@ table.data thead th.td-num { text-align: right; }
   border-radius: var(--mw-radius-sm);
 }
 
-/* 起動画面・ヘッダーのブランドロゴ
-   アイコンは白シルエットPNG（形は元画像のまま）。明背景では反転して黒で表示。 */
+/* 起動画面・ヘッダーのブランドロゴ（金×黒エンブレム＋ワードマーク）
+   エンブレムは黒内側を持つため、暗いチップ上に置いて全テーマで視認できるようにする。 */
 .mw-mark { display: block; object-fit: contain; }
-/* 既定（明るい面）は黒に反転。ダークテーマでは白のまま。 */
-.mw-mark { filter: invert(1) brightness(0.1); }
-[data-mode='dark'] .mw-mark { filter: none; }
-/* ヘッダーは大半が暗いので白のまま。明るいヘッダー(Real/Dortmund)のみ黒へ。 */
-.app-header__mark { filter: none; }
-[data-theme='realmadrid'] .app-header__mark,
-[data-theme='dortmund'] .app-header__mark { filter: invert(1) brightness(0.1); }
 
-.mw-wordmark { font-weight: 800; letter-spacing: -0.01em; color: currentColor; line-height: 1; }
+/* ブランドの金色（テーマに依らずロゴ色を一定に保つ） */
+.mw-logo, .mw-logo__text { --mw-gold: #d9a93b; }
 
 .mw-logo { display: inline-flex; align-items: center; gap: 16px; }
+.mw-logo__chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #0d1410; border-radius: 16px; padding: 10px 16px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+}
 .mw-logo__text { display: flex; flex-direction: column; gap: 8px; }
-.mw-wordmark--lg { font-size: 2.5rem; color: var(--mw-text); }
+.mw-wordmark { font-weight: 800; letter-spacing: 0.02em; line-height: 1; color: var(--mw-gold); }
+.mw-wordmark--lg { font-size: 2.4rem; }
 .mw-logo__tag { font-size: 0.82rem; color: var(--mw-text-muted); letter-spacing: 0.01em; }
+
+/* ヘッダー内のエンブレム（小さなチップ） */
+.app-header__brand .mw-logo__chip { padding: 5px 9px; border-radius: 10px; }
 
 @media (max-width: 520px) {
   .mw-logo { gap: 12px; }
-  .mw-wordmark--lg { font-size: 1.9rem; }
-  .mw-logo__mark { width: 56px; height: 56px; }
+  .mw-wordmark--lg { font-size: 1.85rem; }
 }
 
 /* 段階5: シーズンメモ（月別カード） */
@@ -682,3 +685,13 @@ table.data thead th.td-num { text-align: right; }
 .constraint-card__main { min-width: 0; }
 .constraint-card__title { font-weight: 700; }
 .constraint-card__side { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+/* 段階7: エクスポート/インポート */
+.notice--ok { border-color: color-mix(in srgb, var(--mw-accent) 50%, var(--mw-border)); color: var(--mw-text); }
+.notice--err { border-color: color-mix(in srgb, var(--mw-danger) 55%, var(--mw-border)); color: var(--mw-text); }
+.export-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.export-grid .info-line { min-height: 3.4em; }
