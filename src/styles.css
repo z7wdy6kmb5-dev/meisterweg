@@ -568,16 +568,29 @@ table.data thead th.td-num { text-align: right; }
   border-radius: var(--mw-radius-sm);
 }
 
-/* 起動画面・ヘッダーのブランドロゴ（ユーザー提供の元画像をそのまま表示・無加工）
-   元画像は黒背景の作品のため、黒の台座に載せて継ぎ目なく見せる（画像自体は無加工）。 */
-.mw-img { display: block; object-fit: contain; background: #000; }
+/* 起動画面・ヘッダーのブランドロゴ
+   アイコンは白シルエットPNG（形は元画像のまま）。明背景では反転して黒で表示。 */
+.mw-mark { display: block; object-fit: contain; }
+/* 既定（明るい面）は黒に反転。ダークテーマでは白のまま。 */
+.mw-mark { filter: invert(1) brightness(0.1); }
+[data-mode='dark'] .mw-mark { filter: none; }
+/* ヘッダーは大半が暗いので白のまま。明るいヘッダー(Real/Dortmund)のみ黒へ。 */
+.app-header__mark { filter: none; }
+[data-theme='realmadrid'] .app-header__mark,
+[data-theme='dortmund'] .app-header__mark { filter: invert(1) brightness(0.1); }
 
-.mw-logo { display: inline-flex; }
-.mw-logo--stacked { flex-direction: column; align-items: flex-start; gap: 10px; }
-.mw-logo__tag { font-size: 0.82rem; color: var(--mw-text-muted); margin-top: 2px; letter-spacing: 0.01em; }
-.mw-logo__mark, .mw-logo__word { border-radius: var(--mw-radius-sm); }
+.mw-wordmark { font-weight: 800; letter-spacing: -0.01em; color: currentColor; line-height: 1; }
 
-.app-header__mark { display: block; background: #000; border-radius: 6px; }
+.mw-logo { display: inline-flex; align-items: center; gap: 16px; }
+.mw-logo__text { display: flex; flex-direction: column; gap: 8px; }
+.mw-wordmark--lg { font-size: 2.5rem; color: var(--mw-text); }
+.mw-logo__tag { font-size: 0.82rem; color: var(--mw-text-muted); letter-spacing: 0.01em; }
+
+@media (max-width: 520px) {
+  .mw-logo { gap: 12px; }
+  .mw-wordmark--lg { font-size: 1.9rem; }
+  .mw-logo__mark { width: 56px; height: 56px; }
+}
 
 /* 段階5: シーズンメモ（月別カード） */
 .memo-grid {
