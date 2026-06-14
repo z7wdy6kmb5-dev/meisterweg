@@ -568,21 +568,16 @@ table.data thead th.td-num { text-align: right; }
   border-radius: var(--mw-radius-sm);
 }
 
-/* 起動画面・ヘッダーのブランドロゴ（元画像を使用。白アートワーク） */
-.mw-img { display: block; object-fit: contain; }
+/* 起動画面・ヘッダーのブランドロゴ（ユーザー提供の元画像をそのまま表示・無加工）
+   元画像は黒背景の作品のため、黒の台座に載せて継ぎ目なく見せる（画像自体は無加工）。 */
+.mw-img { display: block; object-fit: contain; background: #000; }
 
 .mw-logo { display: inline-flex; }
 .mw-logo--stacked { flex-direction: column; align-items: flex-start; gap: 10px; }
 .mw-logo__tag { font-size: 0.82rem; color: var(--mw-text-muted); margin-top: 2px; letter-spacing: 0.01em; }
+.mw-logo__mark, .mw-logo__word { border-radius: var(--mw-radius-sm); }
 
-/* 起動画面（ボディ）は明るいので白アートワークを反転して黒で表示。ダークテーマでは白のまま。 */
-.mw-logo .mw-img { filter: invert(1) brightness(0.12); }
-[data-mode='dark'] .mw-logo .mw-img { filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.4)); }
-
-/* ヘッダーのロゴ：明るいヘッダー（Real/Dortmund）のときだけ反転して黒に。 */
-.app-header__mark { display: block; }
-[data-theme='realmadrid'] .app-header__mark,
-[data-theme='dortmund'] .app-header__mark { filter: invert(1) brightness(0.12); }
+.app-header__mark { display: block; background: #000; border-radius: 6px; }
 
 /* 段階5: シーズンメモ（月別カード） */
 .memo-grid {

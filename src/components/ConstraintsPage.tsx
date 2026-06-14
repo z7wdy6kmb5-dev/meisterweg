@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import {
   listConstraints, createConstraint, updateConstraint, deleteConstraint, getConstraintContext,
 } from '../repo';
-import { TEMPLATES, getBuiltinTemplate, type ConstraintTemplate, type ParamField } from '../constraints';
+import { TEMPLATES, getBuiltinTemplate, ATTR_KEYS, ATTR_LABEL, type ConstraintTemplate, type ParamField, type AttrGroup, type NatRule, type AttrKey } from '../constraints';
 import {
   listCustomTemplates, addCustomTemplate, getCustomTemplate, type CustomTemplate,
 } from '../customConstraints';
@@ -160,6 +160,7 @@ function ConstraintCard({ careerId, c, players, transfers, onEdit }: {
   );
 }
 
+
 // 追加／編集モーダル
 function ConstraintModal({ careerId, constraint, onClose }: {
   careerId: string; constraint: Constraint | null; onClose: () => void;
@@ -167,7 +168,13 @@ function ConstraintModal({ careerId, constraint, onClose }: {
   const isEdit = !!constraint;
   const customs = listCustomTemplates(careerId);
   const [key, setKey] = useState<string>(constraint?.template_key ?? 'transfer_fee_cap');
+  // 単純フィールド用（文字列）
   const [params, setParams] = useState<Record<string, string>>(() => toStringParams(constraint?.params));
+  // 専用エディタ用（構造化）
+  const [groups, setGroups] = useState<AttrGroup[]>(() => readGroups(constraint?.params));
+  const [exceptions, setExceptions] = useState<string>(() => numStr(constraint?.params?.exceptions));
+  const [natRules, setNatRules] = useState<NatRule[]>(() => readNat(constraint?.params));
+  const [minCountries, setMinCountries] = useState<string>(() => numStr(constraint?.params?.minCountries));
   const [note, setNote] = useState(constraint?.note ?? '');
   const [penalty, setPenalty] = useState(constraint?.penalty ?? '');
   const [busy, setBusy] = useState(false);
@@ -181,32 +188,44 @@ function ConstraintModal({ careerId, constraint, onClose }: {
   const builtin = getBuiltinTemplate(key);
   const custom = customList.find((t) => t.key === key);
   const isAuto = builtin?.isAuto ?? false;
+  const editor = builtin?.customEditor;
   const fields = builtin?.params ?? [];
   const examples = builtin?.examples ?? [];
   const description = builtin?.description ?? custom?.description ?? '';
+  const partialNote = builtin?.partialNote;
 
   function selectKey(k: string) {
     setKey(k);
-    setParams({});
+    setParams({}); setGroups([]); setExceptions(''); setNatRules([]); setMinCountries('');
   }
 
   function confirmCustom() {
     const tpl = addCustomTemplate(careerId, customLabel, customDesc);
     setCustomList((l) => [...l, tpl]);
-    setKey(tpl.key);
-    setParams({});
+    selectKey(tpl.key);
     setCustomLabel(''); setCustomDesc(''); setAddingCustom(false);
+  }
+
+  function buildParams(): Record<string, unknown> {
+    if (editor === 'attribute') {
+      return { groups, exceptions: exceptions === '' ? '' : Number(exceptions) };
+    }
+    if (editor === 'nationality') {
+      return { rules: natRules, minCountries: minCountries === '' ? '' : Number(minCountries) };
+    }
+    const stored: Record<string, unknown> = {};
+    for (const f of fields) {
+      const raw = params[f.key] ?? '';
+      stored[f.key] = f.kind === 'number' ? (raw === '' ? '' : Number(raw)) : raw;
+    }
+    return stored;
   }
 
   async function save() {
     if (busy) return;
     setBusy(true);
     try {
-      const stored: Record<string, unknown> = {};
-      for (const f of fields) {
-        const raw = params[f.key] ?? '';
-        stored[f.key] = f.kind === 'number' ? (raw === '' ? '' : Number(raw)) : raw;
-      }
+      const stored = buildParams();
       if (constraint) {
         await updateConstraint(constraint.id, { template_key: key, is_auto: isAuto, params: stored, note, penalty });
       } else {
@@ -274,9 +293,20 @@ function ConstraintModal({ careerId, constraint, onClose }: {
                 <p className="info-line" style={{ marginTop: 6 }}>例：{examples.join(' ／ ')}</p>
               )}
 
-              {fields.length > 0 && (
+              {/* 能力値制限：専用エディタ */}
+              {editor === 'attribute' && (
+                <AttributeEditor groups={groups} setGroups={setGroups} exceptions={exceptions} setExceptions={setExceptions} />
+              )}
+
+              {/* 国籍縛り：専用エディタ */}
+              {editor === 'nationality' && (
+                <NationalityEditor rules={natRules} setRules={setNatRules} minCountries={minCountries} setMinCountries={setMinCountries} />
+              )}
+
+              {/* 通常テンプレートの単純フィールド */}
+              {!editor && fields.length > 0 && (
                 <>
-                  <div className="subhead">設定</div>
+                  <div className="subhead">設定（すべて任意）</div>
                   <div className="field-grid">
                     {fields.map((f) => (
                       <div className="field" key={f.key}>
@@ -294,7 +324,9 @@ function ConstraintModal({ careerId, constraint, onClose }: {
                 </>
               )}
 
-              <div className="subhead">縛り内容（自由記入）</div>
+              {partialNote && <p className="info-line mt-16" style={{ opacity: 0.85 }}>※ {partialNote}</p>}
+
+              <div className="subhead">縛り内容（自由記入・任意）</div>
               <textarea
                 className="memo-card__body"
                 style={{ border: '1px solid var(--mw-border)', borderRadius: 'var(--mw-radius-sm)', background: 'var(--mw-surface)' }}
@@ -322,8 +354,129 @@ function ConstraintModal({ careerId, constraint, onClose }: {
   );
 }
 
+// ---- 能力値制限エディタ：ポジショングループ × 能力条件（下限/上限） ----
+function AttributeEditor({ groups, setGroups, exceptions, setExceptions }: {
+  groups: AttrGroup[]; setGroups: (g: AttrGroup[]) => void; exceptions: string; setExceptions: (s: string) => void;
+}) {
+  function addGroup() { setGroups([...groups, { positions: [], conds: [{ attr: 'physical', min: null, max: null }] }]); }
+  function rmGroup(i: number) { setGroups(groups.filter((_, idx) => idx !== i)); }
+  function setGroup(i: number, g: AttrGroup) { setGroups(groups.map((x, idx) => (idx === i ? g : x))); }
+
+  return (
+    <>
+      <div className="subhead">能力条件（すべて任意・ポジションごとに設定可）</div>
+      {groups.length === 0 && <p className="info-line">「＋ 条件グループを追加」で、対象ポジションと能力の下限/上限を設定できます。</p>}
+      {groups.map((g, gi) => (
+        <div key={gi} className="card card--pad" style={{ marginBottom: 10 }}>
+          <div className="row" style={{ justifyContent: 'space-between' }}>
+            <div className="field" style={{ flex: 1 }}>
+              <label>対象ポジション（空=全員 / カンマ区切りで複数）</label>
+              <input
+                value={(g.positions ?? []).join(', ')}
+                onChange={(e) => setGroup(gi, { ...g, positions: e.target.value.split(/[,、\s]+/).map((s) => s.trim().toUpperCase()).filter(Boolean) })}
+                placeholder="例：CB, RB"
+              />
+            </div>
+            <button className="btn btn--ghost" style={{ padding: '6px 10px', marginLeft: 8 }} onClick={() => rmGroup(gi)} title="グループ削除">🗑</button>
+          </div>
+
+          <div className="mt-16" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {g.conds.map((c, ci) => (
+              <div key={ci} className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                <select
+                  value={c.attr}
+                  onChange={(e) => setGroup(gi, { ...g, conds: g.conds.map((x, idx) => (idx === ci ? { ...x, attr: e.target.value as AttrKey } : x)) })}
+                >
+                  {ATTR_KEYS.map((a) => <option key={a} value={a}>{ATTR_LABEL[a]}</option>)}
+                </select>
+                <input
+                  type="number" placeholder="下限" style={{ width: 90 }}
+                  value={c.min ?? ''}
+                  onChange={(e) => setGroup(gi, { ...g, conds: g.conds.map((x, idx) => (idx === ci ? { ...x, min: e.target.value === '' ? null : Number(e.target.value) } : x)) })}
+                />
+                <input
+                  type="number" placeholder="上限" style={{ width: 90 }}
+                  value={c.max ?? ''}
+                  onChange={(e) => setGroup(gi, { ...g, conds: g.conds.map((x, idx) => (idx === ci ? { ...x, max: e.target.value === '' ? null : Number(e.target.value) } : x)) })}
+                />
+                <button className="btn btn--ghost" style={{ padding: '6px 10px' }} onClick={() => setGroup(gi, { ...g, conds: g.conds.filter((_, idx) => idx !== ci) })}>削除</button>
+              </div>
+            ))}
+            <button className="btn btn--ghost" style={{ alignSelf: 'flex-start', padding: '6px 10px' }} onClick={() => setGroup(gi, { ...g, conds: [...g.conds, { attr: 'pace', min: null, max: null }] })}>＋ 能力条件</button>
+          </div>
+        </div>
+      ))}
+      <button className="btn btn--ghost" onClick={addGroup}>＋ 条件グループを追加</button>
+
+      <div className="field mt-16" style={{ maxWidth: 220 }}>
+        <label>認める例外人数（任意）</label>
+        <input type="number" value={exceptions} onChange={(e) => setExceptions(e.target.value)} placeholder="例：2" />
+      </div>
+      <p className="info-line" style={{ marginTop: 6 }}>「フィジカル−OVR」を選び下限に5を入れると「フィジカルがOVR+5以上」を表せます。</p>
+    </>
+  );
+}
+
+// ---- 国籍縛りエディタ：国籍ごとに最低/最大人数、在籍国数の下限 ----
+function NationalityEditor({ rules, setRules, minCountries, setMinCountries }: {
+  rules: NatRule[]; setRules: (r: NatRule[]) => void; minCountries: string; setMinCountries: (s: string) => void;
+}) {
+  function add() { setRules([...rules, { nat: '', min: null, max: null }]); }
+  function set(i: number, r: NatRule) { setRules(rules.map((x, idx) => (idx === i ? r : x))); }
+  function rm(i: number) { setRules(rules.filter((_, idx) => idx !== i)); }
+
+  return (
+    <>
+      <div className="subhead">国籍ごとの人数条件（すべて任意）</div>
+      {rules.length === 0 && <p className="info-line">「＋ 国籍ルールを追加」で、国籍ごとに最低/最大人数を設定できます。</p>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {rules.map((r, i) => (
+          <div key={i} className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+            <input
+              placeholder="国籍（例：ドイツ）" style={{ flex: 1, minWidth: 140 }}
+              value={r.nat}
+              onChange={(e) => set(i, { ...r, nat: e.target.value })}
+            />
+            <input
+              type="number" placeholder="最低人数" style={{ width: 110 }}
+              value={r.min ?? ''}
+              onChange={(e) => set(i, { ...r, min: e.target.value === '' ? null : Number(e.target.value) })}
+              title={r.nat ? `${r.nat}の最低人数` : '最低人数'}
+            />
+            <input
+              type="number" placeholder="最大人数" style={{ width: 110 }}
+              value={r.max ?? ''}
+              onChange={(e) => set(i, { ...r, max: e.target.value === '' ? null : Number(e.target.value) })}
+              title={r.nat ? `${r.nat}の最大人数` : '最大人数'}
+            />
+            <button className="btn btn--ghost" style={{ padding: '6px 10px' }} onClick={() => rm(i)}>削除</button>
+          </div>
+        ))}
+      </div>
+      <button className="btn btn--ghost mt-16" onClick={add}>＋ 国籍ルールを追加</button>
+
+      <div className="field mt-16" style={{ maxWidth: 220 }}>
+        <label>在籍国数の下限（任意）</label>
+        <input type="number" value={minCountries} onChange={(e) => setMinCountries(e.target.value)} placeholder="例：7" />
+      </div>
+    </>
+  );
+}
+
 function toStringParams(params: Record<string, unknown> | undefined): Record<string, string> {
   const out: Record<string, string> = {};
-  if (params) for (const [k, v] of Object.entries(params)) out[k] = v == null ? '' : String(v);
+  if (params) for (const [k, v] of Object.entries(params)) {
+    if (k === 'groups' || k === 'rules') continue;
+    out[k] = v == null ? '' : String(v);
+  }
   return out;
+}
+function numStr(v: unknown): string { return v == null || v === '' ? '' : String(v); }
+function readGroups(params: Record<string, unknown> | undefined): AttrGroup[] {
+  const g = params?.groups;
+  return Array.isArray(g) ? (g as AttrGroup[]) : [];
+}
+function readNat(params: Record<string, unknown> | undefined): NatRule[] {
+  const r = params?.rules;
+  return Array.isArray(r) ? (r as NatRule[]) : [];
 }

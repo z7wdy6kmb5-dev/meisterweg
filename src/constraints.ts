@@ -36,6 +36,8 @@ export interface ConstraintTemplate {
   label: string;
   description: string;
   isAuto: boolean;
+  /** 専用エディタを使うテンプレート（能力値制限・国籍縛り） */
+  customEditor?: 'attribute' | 'nationality';
   /** 自動判定では一部条件のみ扱える場合の注記 */
   partialNote?: string;
   params: ParamField[];
@@ -43,13 +45,53 @@ export interface ConstraintTemplate {
   evaluate?: (params: Record<string, unknown>, ctx: ConstraintContext) => ViolationResult;
 }
 
+// ---- 能力値制限：判定対象にできる項目（6能力値＋OVR・身長・フィジ−OVR） ----
+export type AttrKey =
+  | 'pace' | 'shooting' | 'passing' | 'dribbling' | 'defending' | 'physical'
+  | 'ovr' | 'height' | 'physMinusOvr';
+
+export const ATTR_LABEL: Record<AttrKey, string> = {
+  pace: 'ペース', shooting: 'シュート', passing: 'パス', dribbling: 'ドリブル',
+  defending: '守備', physical: 'フィジカル', ovr: 'OVR', height: '身長',
+  physMinusOvr: 'フィジカル−OVR',
+};
+// GK のときは6能力値のラベルを差し替え（表示用）
+export const ATTR_LABEL_GK: Partial<Record<AttrKey, string>> = {
+  pace: 'ダイビング', shooting: 'ハンドリング', passing: 'キック',
+  dribbling: '反射神経', defending: 'スピード', physical: 'ポジショニング',
+};
+export const ATTR_KEYS: AttrKey[] = ['pace', 'shooting', 'passing', 'dribbling', 'defending', 'physical', 'ovr', 'height', 'physMinusOvr'];
+
+export interface AttrCond { attr: AttrKey; min: number | null; max: number | null; }
+export interface AttrGroup { positions: string[]; conds: AttrCond[]; }
+export interface NatRule { nat: string; min: number | null; max: number | null; }
+
+function attrValue(pl: Player, attr: AttrKey): number | null {
+  switch (attr) {
+    case 'pace': return pl.join_pace;
+    case 'shooting': return pl.join_shooting;
+    case 'passing': return pl.join_passing;
+    case 'dribbling': return pl.join_dribbling;
+    case 'defending': return pl.join_defending;
+    case 'physical': return pl.join_physical;
+    case 'ovr': return pl.join_ovr;
+    case 'height': return pl.height_cm;
+    case 'physMinusOvr': return pl.join_physical - pl.join_ovr;
+  }
+}
+
+function readGroups(v: unknown): AttrGroup[] {
+  return Array.isArray(v) ? (v as AttrGroup[]) : [];
+}
+function readNatRules(v: unknown): NatRule[] {
+  return Array.isArray(v) ? (v as NatRule[]) : [];
+}
+
 const num = (v: unknown): number | null => {
   if (v === '' || v == null) return null;
   const n = Number(v);
   return Number.isNaN(n) ? null : n;
 };
-const str = (v: unknown): string => (typeof v === 'string' ? v : '');
-const splitList = (v: unknown): string[] => str(v).split(/[,、\s]+/).map((s) => s.trim()).filter(Boolean);
 
 // 在籍中の選手（自動判定の母集団）
 const onRoster = (players: Player[]) => players.filter((p) => p.current_status !== '退団');
@@ -99,102 +141,86 @@ export const TEMPLATES: ConstraintTemplate[] = [
   {
     key: 'attribute_restriction',
     label: '能力値制限',
-    description: 'チームのアイデンティティに沿った獲得条件を設定します。対象ポジション・加入時OVR/能力値の下限/上限・身長・「OVR+α」のような相対条件・例外人数を指定できます。',
+    description: 'チームのアイデンティティに沿った獲得条件。ポジションごとに、6能力値・OVR・身長・「OVR+α」の下限/上限を複数指定できます。',
     isAuto: true,
+    customEditor: 'attribute',
+    params: [],
     partialNote: '加入時スナップショット（OVR・6能力値・身長）に対して判定します。',
-    params: [
-      { key: 'positions', label: '対象ポジション（空=全員）', kind: 'text', placeholder: '例：CB, ST' },
-      { key: 'minHeight', label: '身長の下限(cm)', kind: 'number', placeholder: '例：190' },
-      { key: 'minPace', label: 'ペースの下限', kind: 'number', placeholder: '例：70' },
-      { key: 'minPhysical', label: 'フィジカルの下限', kind: 'number' },
-      { key: 'physMinusOvr', label: '「フィジカル − OVR」の下限', kind: 'number', placeholder: '例：5（OVR+5以上）', help: '加入時フィジカルが加入時OVR＋この値以上であること' },
-      { key: 'maxOvr', label: '加入時OVRの上限', kind: 'number', placeholder: '例：75' },
-      { key: 'exceptions', label: '認める例外人数', kind: 'number', placeholder: '例：2' },
-    ],
     examples: [
       '獲得時フィジカルがOVR+5以上',
       'CBは身長190cm以上かつペース70以上',
       '加入時OVRは75以下（例外2人まで）',
     ],
     evaluate: (p, ctx) => {
-      const positions = splitList(p.positions).map((s) => s.toUpperCase());
-      const minHeight = num(p.minHeight);
-      const minPace = num(p.minPace);
-      const minPhysical = num(p.minPhysical);
-      const physMinusOvr = num(p.physMinusOvr);
-      const maxOvr = num(p.maxOvr);
+      const groups = readGroups(p.groups);
       const exceptions = num(p.exceptions) ?? 0;
+      if (groups.length === 0) return { ok: true, violations: [], summary: '条件未設定' };
 
-      const targets = acquired(ctx.players).filter(
-        (pl) => positions.length === 0 || positions.includes(pl.position),
-      );
       const bad: string[] = [];
-      for (const pl of targets) {
-        const reasons: string[] = [];
-        if (minHeight != null && pl.height_cm < minHeight) reasons.push(`身長${pl.height_cm}`);
-        if (minPace != null && pl.join_pace < minPace) reasons.push(`ペース${pl.join_pace}`);
-        if (minPhysical != null && pl.join_physical < minPhysical) reasons.push(`フィジカル${pl.join_physical}`);
-        if (physMinusOvr != null && pl.join_physical - pl.join_ovr < physMinusOvr) reasons.push(`フィジ-OVR=${pl.join_physical - pl.join_ovr}`);
-        if (maxOvr != null && pl.join_ovr > maxOvr) reasons.push(`OVR${pl.join_ovr}`);
-        if (reasons.length) bad.push(`${pl.name}（${reasons.join('・')}）`);
+      for (const pl of acquired(ctx.players)) {
+        // この選手に適用されるグループ（対象ポジション一致 or 全員グループ）
+        for (const g of groups) {
+          const posList = (g.positions ?? []).map((s) => s.toUpperCase());
+          if (posList.length > 0 && !posList.includes(pl.position)) continue;
+          const reasons: string[] = [];
+          for (const cond of g.conds ?? []) {
+            const val = attrValue(pl, cond.attr);
+            if (val == null) continue;
+            if (cond.min != null && val < cond.min) reasons.push(`${ATTR_LABEL[cond.attr]}${val}<${cond.min}`);
+            if (cond.max != null && val > cond.max) reasons.push(`${ATTR_LABEL[cond.attr]}${val}>${cond.max}`);
+          }
+          if (reasons.length) bad.push(`${pl.name}（${reasons.join('・')}）`);
+        }
       }
       const overflow = Math.max(0, bad.length - exceptions);
-      const cond = [
-        positions.length ? `対象:${positions.join('/')}` : '対象:全獲得',
-        minHeight != null ? `身長≥${minHeight}` : '',
-        minPace != null ? `ペース≥${minPace}` : '',
-        minPhysical != null ? `フィジ≥${minPhysical}` : '',
-        physMinusOvr != null ? `フィジ≥OVR+${physMinusOvr}` : '',
-        maxOvr != null ? `OVR≤${maxOvr}` : '',
-        exceptions ? `例外${exceptions}人` : '',
-      ].filter(Boolean).join(' / ');
-      return {
-        ok: overflow === 0,
-        violations: bad,
-        summary: cond || '条件未設定',
-      };
+      const summary = groups.map((g) => {
+        const pos = (g.positions ?? []).length ? (g.positions ?? []).join('/') : '全員';
+        const conds = (g.conds ?? []).map((c) => {
+          const lab = ATTR_LABEL[c.attr];
+          if (c.min != null && c.max != null) return `${lab}${c.min}〜${c.max}`;
+          if (c.min != null) return `${lab}≥${c.min}`;
+          if (c.max != null) return `${lab}≤${c.max}`;
+          return lab;
+        }).join('・');
+        return `[${pos}] ${conds}`;
+      }).join(' / ') + (exceptions ? ` ／ 例外${exceptions}人` : '');
+      return { ok: overflow === 0, violations: bad, summary };
     },
   },
   {
     key: 'nationality_rule',
     label: '国籍縛り',
-    description: 'チームの思想を反映する国籍ルール。チーム全体の最低人数、国籍別の上限、在籍国数の下限を自動判定します（スタメン条件は試合データが無いため自由記入で管理）。',
+    description: 'チームの思想を反映する国籍ルール。国籍ごとの最低/最大人数、在籍国数の下限を自動判定します。',
     isAuto: true,
-    partialNote: 'スタメン人数の条件は自動判定できないため、自由記入欄に記録してください。',
-    params: [
-      { key: 'requireNat', label: '必須国籍', kind: 'text', placeholder: '例：ドイツ' },
-      { key: 'requireMin', label: '↑の最低人数（チーム全体）', kind: 'number', placeholder: '例：7' },
-      { key: 'capNat', label: '上限を設ける国籍', kind: 'text', placeholder: '例：フランス' },
-      { key: 'capMax', label: '↑の最大人数', kind: 'number', placeholder: '例：1' },
-      { key: 'minCountries', label: '在籍国数の下限', kind: 'number', placeholder: '例：7' },
-    ],
+    customEditor: 'nationality',
+    params: [],
+    partialNote: 'スタメン人数の条件は試合データが無く自動判定できないため、自由記入欄に記録してください。',
     examples: ['チームに最低7人がドイツ人', 'フランス人は1人まで', '7カ国以上が在籍'],
     evaluate: (p, ctx) => {
       const roster = onRoster(ctx.players);
-      const v: string[] = [];
-      const requireNat = str(p.requireNat).trim();
-      const requireMin = num(p.requireMin);
-      if (requireNat && requireMin != null) {
-        const c = roster.filter((pl) => pl.nationality === requireNat).length;
-        if (c < requireMin) v.push(`${requireNat}が${c}人（最低${requireMin}）`);
-      }
-      const capNat = str(p.capNat).trim();
-      const capMax = num(p.capMax);
-      if (capNat && capMax != null) {
-        const c = roster.filter((pl) => pl.nationality === capNat).length;
-        if (c > capMax) v.push(`${capNat}が${c}人（上限${capMax}）`);
-      }
+      const rules = readNatRules(p.rules);
       const minCountries = num(p.minCountries);
+      const v: string[] = [];
+      for (const r of rules) {
+        if (!r.nat) continue;
+        const c = roster.filter((pl) => pl.nationality === r.nat).length;
+        if (r.min != null && c < r.min) v.push(`${r.nat}が${c}人（最低${r.min}）`);
+        if (r.max != null && c > r.max) v.push(`${r.nat}が${c}人（上限${r.max}）`);
+      }
       if (minCountries != null) {
         const countries = new Set(roster.map((pl) => pl.nationality).filter(Boolean)).size;
         if (countries < minCountries) v.push(`在籍国数${countries}（最低${minCountries}）`);
       }
-      const cond = [
-        requireNat && requireMin != null ? `${requireNat}≥${requireMin}` : '',
-        capNat && capMax != null ? `${capNat}≤${capMax}` : '',
+      const summary = [
+        ...rules.filter((r) => r.nat).map((r) => {
+          if (r.min != null && r.max != null) return `${r.nat} ${r.min}〜${r.max}人`;
+          if (r.min != null) return `${r.nat}≥${r.min}`;
+          if (r.max != null) return `${r.nat}≤${r.max}`;
+          return r.nat;
+        }),
         minCountries != null ? `国数≥${minCountries}` : '',
       ].filter(Boolean).join(' / ');
-      return { ok: v.length === 0, violations: v, summary: cond || '条件未設定' };
+      return { ok: v.length === 0, violations: v, summary: summary || '条件未設定' };
     },
   },
 
