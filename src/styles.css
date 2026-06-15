@@ -6,6 +6,10 @@
 
 * { box-sizing: border-box; }
 
+.mw-img {
+  background-color: transparent !important;
+}
+
 :root {
   --mw-radius: 8px;
   --mw-radius-sm: 5px;
@@ -35,7 +39,7 @@ body {
 /* ============================================================
    クラブテーマの背景写真（読みやすさ確保のためベール（半透明の地色）を重ねる）
    ============================================================ */
-[data-theme] { --mw-club-veil: color-mix(in srgb, var(--mw-bg) 70%, transparent); }
+[data-theme] { --mw-club-veil: color-mix(in srgb, var(--mw-bg) 50%, transparent); }
 [data-theme='milan']      { --mw-club-bg: url('/bg/milan.jpg'); }
 [data-theme='roma']       { --mw-club-bg: url('/bg/roma.jpg'); }
 [data-theme='barcelona']  { --mw-club-bg: url('/bg/barcelona.jpg'); }
