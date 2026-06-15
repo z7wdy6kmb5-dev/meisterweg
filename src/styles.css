@@ -20,13 +20,34 @@ html, body, #root { height: 100%; margin: 0; }
 
 body {
   background-color: var(--mw-bg);
-  background-image: var(--mw-body-pattern, none);
-  background-size: var(--mw-body-size, auto);
-  background-repeat: var(--mw-body-repeat, repeat);
-  background-attachment: fixed;
+  background-image:
+    linear-gradient(var(--mw-club-veil, transparent), var(--mw-club-veil, transparent)),
+    var(--mw-club-bg, none),
+    var(--mw-body-pattern, none);
+  background-size: cover, cover, var(--mw-body-size, auto);
+  background-repeat: no-repeat, no-repeat, var(--mw-body-repeat, repeat);
+  background-position: center, center, center;
+  background-attachment: fixed, fixed, fixed;
   color: var(--mw-text);
   transition: background-color 0.25s ease, color 0.25s ease;
 }
+
+/* ============================================================
+   クラブテーマの背景写真（読みやすさ確保のためベール（半透明の地色）を重ねる）
+   ============================================================ */
+[data-theme] { --mw-club-veil: color-mix(in srgb, var(--mw-bg) 70%, transparent); }
+[data-theme='milan']      { --mw-club-bg: url('/bg/milan.jpg'); }
+[data-theme='roma']       { --mw-club-bg: url('/bg/roma.jpg'); }
+[data-theme='barcelona']  { --mw-club-bg: url('/bg/barcelona.jpg'); }
+[data-theme='bayern']     { --mw-club-bg: url('/bg/bayern.jpg'); }
+[data-theme='chelsea']    { --mw-club-bg: url('/bg/chelsea.jpg'); }
+[data-theme='dortmund']   { --mw-club-bg: url('/bg/dortmund.jpg'); }
+[data-theme='inter']      { --mw-club-bg: url('/bg/inter.jpg'); }
+[data-theme='leverkusen'] { --mw-club-bg: url('/bg/leverkusen.jpg'); }
+[data-theme='liverpool']  { --mw-club-bg: url('/bg/liverpool.jpg'); }
+[data-theme='manutd']     { --mw-club-bg: url('/bg/manutd.jpg'); }
+[data-theme='psg']        { --mw-club-bg: url('/bg/psg.jpg'); }
+[data-theme='realmadrid'] { --mw-club-bg: url('/bg/realmadrid.jpg'); }
 
 /* ダークモードは影を強めて立体感を保つ */
 [data-mode='dark'] {
@@ -372,9 +393,9 @@ input:focus, select:focus, textarea:focus {
   background: transparent;
 }
 .gate__panel { width: 100%; max-width: 560px; }
-.gate__head { position: relative; display: flex; justify-content: center; padding-top: 8px; }
-.gate__theme { position: absolute; top: 0; right: 0; }
-.gate .mw-logo { max-width: 100%; }
+.gate__head { display: flex; flex-direction: column; align-items: stretch; gap: 14px; }
+.gate__theme { display: flex; justify-content: flex-end; }
+.gate .mw-logo { max-width: 100%; align-self: center; }
 .gate .mw-logo__chip { max-width: 100%; }
 .gate .mw-logo__full { max-width: 100%; height: auto; }
 .gate__title {
@@ -623,7 +644,6 @@ table.data thead th.td-num { text-align: right; }
 @media (max-width: 400px) {
   .gate .mw-logo__chip { padding: 12px; width: 100%; }
   .gate .mw-logo__full { height: auto; width: 100%; }
-  .gate__head { padding-top: 40px; }
 }
 
 /* 段階5: シーズンメモ（月別カード） */
