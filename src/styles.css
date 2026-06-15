@@ -6,9 +6,6 @@
 
 * { box-sizing: border-box; }
 
-.mw-img {
-  background-color: transparent !important;
-}
 
 :root {
   --mw-radius: 8px;
@@ -39,7 +36,7 @@ body {
 /* ============================================================
    クラブテーマの背景写真（読みやすさ確保のためベール（半透明の地色）を重ねる）
    ============================================================ */
-[data-theme] { --mw-club-veil: color-mix(in srgb, var(--mw-bg) 0%, transparent); }
+[data-theme] { --mw-club-veil: color-mix(in srgb, var(--mw-bg) 60%, transparent); }
 [data-theme='milan']      { --mw-club-bg: url('/bg/milan.jpg'); }
 [data-theme='roma']       { --mw-club-bg: url('/bg/roma.jpg'); }
 [data-theme='barcelona']  { --mw-club-bg: url('/bg/barcelona.jpg'); }
@@ -88,6 +85,8 @@ input:focus, select:focus, textarea:focus {
 
 .app-header {
   background: var(--mw-primary);
+  /* ヘッダー自体の背景を透明にして、奥の背景写真を透けさせる */
+  background: transparent !important;
   color: var(--mw-on-primary);
   padding: 0 20px;
   position: relative;
@@ -819,3 +818,7 @@ table.data thead th.td-num { text-align: right; }
 .th-sort--active { color: var(--mw-accent); }
 .th-sort--active .th-sort__arrow { opacity: 1; }
 .th-sort:hover { color: var(--mw-accent); }
+
+.mw-img {
+  background-color: transparent !important;
+}
