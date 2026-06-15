@@ -84,7 +84,7 @@ input:focus, select:focus, textarea:focus {
 .app-shell { display: flex; flex-direction: column; min-height: 100%; }
 
 .app-header {
-  background: var(--mw-primary);
+  /* background: var(--mw-primary); */
   /* ヘッダー自体の背景を透明にして、奥の背景写真を透けさせる */
   background: transparent !important;
   color: var(--mw-on-primary);
