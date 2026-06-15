@@ -20,7 +20,7 @@
 html, body, #root { height: 100%; margin: 0; }
 
 body {
-  background-color: var(--mw-bg);
+  /* background-color: var(--mw-bg);
   background-image:
     linear-gradient(var(--mw-club-veil, transparent), var(--mw-club-veil, transparent)),
     var(--mw-club-bg, none),
@@ -30,7 +30,7 @@ body {
   background-position: center, center, center;
   background-attachment: fixed, fixed, fixed;
   color: var(--mw-text);
-  transition: background-color 0.25s ease, color 0.25s ease;
+  transition: background-color 0.25s ease, color 0.25s ease; */
 }
 
 /* ============================================================
@@ -84,9 +84,7 @@ input:focus, select:focus, textarea:focus {
 .app-shell { display: flex; flex-direction: column; min-height: 100%; }
 
 .app-header {
-  /* background: var(--mw-primary); */
-  /* ヘッダー自体の背景を透明にして、奥の背景写真を透けさせる */
-  background: transparent !important;
+  background: var(--mw-primary);
   color: var(--mw-on-primary);
   padding: 0 20px;
   position: relative;
