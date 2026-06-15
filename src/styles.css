@@ -20,7 +20,8 @@
 html, body, #root { height: 100%; margin: 0; }
 
 body {
-  /* background-color: var(--mw-bg);
+  /* background-color: var(--mw-bg); */
+  background-color: red !important;
   background-image:
     linear-gradient(var(--mw-club-veil, transparent), var(--mw-club-veil, transparent)),
     var(--mw-club-bg, none),
@@ -30,7 +31,7 @@ body {
   background-position: center, center, center;
   background-attachment: fixed, fixed, fixed;
   color: var(--mw-text);
-  transition: background-color 0.25s ease, color 0.25s ease; */
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 /* ============================================================
