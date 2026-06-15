@@ -36,7 +36,7 @@ body {
 /* ============================================================
    クラブテーマの背景写真（読みやすさ確保のためベール（半透明の地色）を重ねる）
    ============================================================ */
-[data-theme] { --mw-club-veil: color-mix(in srgb, var(--mw-bg) 30%, transparent); }
+[data-theme] { --mw-club-veil: color-mix(in srgb, var(--mw-bg) 10%, transparent); }
 [data-theme='milan']      { --mw-club-bg: url('/bg/milan.jpg'); }
 [data-theme='roma']       { --mw-club-bg: url('/bg/roma.jpg'); }
 [data-theme='barcelona']  { --mw-club-bg: url('/bg/barcelona.jpg'); }
