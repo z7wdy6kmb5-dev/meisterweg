@@ -1,29 +1,29 @@
-// Meisterweg ロゴ。ユーザー提供の金×黒エンブレム（王冠＋サッカーボール＋道）を使用。
-// 背景の暗緑だけを透過にし、金・黒の作品色はそのまま保持（形・色は不変）。
-// 黒い内側を持つ作品のため、暗いチップ（台座）の上に置いてどのテーマでも視認できるようにする。
-// 「Meisterweg」の文字は元画像の黒文字が背景同化で抜けてしまうため、金色テキストで表示。
+// Meisterweg ロゴ。ユーザー提供の透過PNGをそのまま使用（形・色は無加工）。
+//  - meisterweg_full.png : エンブレム＋ワードマーク（白＋赤アクセント）
+//  - meisterweg_text.png : 文字のみ
+// 白主体のアートワークなので、明るい面では暗いチップ(台座)の上に置いて視認性を確保する。
 
-const MARK = '/logo/meisterweg_mark.png';
+const FULL = '/logo/meisterweg_full.png';
+const TEXT = '/logo/meisterweg_text.png';
 
-export function MeisterMark({ size = 40, className = '' }: { size?: number; className?: string }) {
-  // 縦長エンブレム（約 0.68:1）。高さ基準で表示。
-  return <img src={MARK} alt="" aria-hidden height={size} className={`mw-mark ${className}`} />;
+// 文字のみロゴ（ヘッダー等で使用）
+export function MeisterWordmark({ height = 26, className = '' }: { height?: number; className?: string }) {
+  return <img src={TEXT} alt="Meisterweg" height={height} className={`mw-img ${className}`} />;
 }
 
-export function MeisterWordmark({ className = '' }: { className?: string }) {
-  return <span className={`mw-wordmark ${className}`}>Meisterweg</span>;
+// フルロゴ（エンブレム＋ワードマーク）
+export function MeisterFull({ height = 96, className = '' }: { height?: number; className?: string }) {
+  return <img src={FULL} alt="Meisterweg" height={height} className={`mw-img ${className}`} />;
 }
 
+// 起動画面用ロックアップ
 export function Logo() {
   return (
     <span className="mw-logo">
       <span className="mw-logo__chip">
-        <MeisterMark size={96} className="mw-logo__mark" />
+        <MeisterFull height={150} className="mw-logo__full" />
       </span>
-      <span className="mw-logo__text">
-        <MeisterWordmark className="mw-wordmark--lg" />
-        <span className="mw-logo__tag">マイスターへの道 — 監督キャリア記録</span>
-      </span>
+      <span className="mw-logo__tag">マイスターへの道 — 監督キャリア記録</span>
     </span>
   );
 }

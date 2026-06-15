@@ -23,9 +23,9 @@ export function CareerGate() {
   return (
     <div className="gate">
       <div className="gate__panel">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+        <div className="gate__head">
+          <div className="gate__theme"><ThemePicker /></div>
           <Logo />
-          <ThemePicker />
         </div>
 
         <div className="card card--pad mt-24">

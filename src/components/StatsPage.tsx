@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { getSeasonStatRows, upsertSeasonStat, type StatRow } from '../repo';
 import { useApp } from '../AppContext';
 import { formatDelta } from '../format';
+import { SortableTh, type SortState } from './tableControls';
 import type { SeasonStats } from '../types';
 
 // 編集可能なスタッツ列の定義（選手列は常時表示）。
@@ -42,8 +43,42 @@ export function StatsPage() {
   );
   const [visible, setVisible] = useState<Visible>(loadVisible);
   const [colsOpen, setColsOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [sort, setSortState] = useState<SortState<string>>({ key: 'name', dir: 'asc' });
 
   useEffect(() => { localStorage.setItem(COLS_KEY, JSON.stringify(visible)); }, [visible]);
+
+  function setSort(key: string) {
+    setSortState((p) => (p.key === key ? { key, dir: p.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
+  }
+
+  const processed = useMemo(() => {
+    let list = (rows ?? []).slice();
+    const q = query.trim().toLowerCase();
+    if (q) list = list.filter((r) => `${r.player.name} ${r.player.display_code}`.toLowerCase().includes(q));
+    const k = sort.key;
+    if (k) {
+      const val = (r: StatRow): number | string | null => {
+        switch (k) {
+          case 'name': return r.player.name;
+          case 'code': return r.player.display_code;
+          case 'pos': return r.player.position;
+          case 'delta': return r.stat?.end_ovr != null && r.baseOvr != null ? r.stat.end_ovr - r.baseOvr : null;
+          default: return (r.stat ? (r.stat[k as StatField] ?? null) : null);
+        }
+      };
+      list.sort((a, b) => {
+        const va = val(a), vb = val(b);
+        const an = va == null, bn = vb == null;
+        if (an && bn) return 0;
+        if (an) return 1;
+        if (bn) return -1;
+        const cmp = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb), 'ja');
+        return sort.dir === 'asc' ? cmp : -cmp;
+      });
+    }
+    return list;
+  }, [rows, query, sort]);
 
   if (!currentSeason) {
     return (
@@ -93,25 +128,40 @@ export function StatsPage() {
           </div>
         </div>
       ) : (
-        <div className="table-wrap">
-          <table className="data">
-            <thead>
-              <tr>
-                <th>選手</th>
-                {shown.map((c) => (
-                  <th key={c.key} className={c.kind === 'meta' ? '' : 'td-num'}>
-                    {c.label}
-                  </th>
+        <>
+          <div className="filter-bar">
+            <input
+              className="filter-bar__search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="選手名・コードで検索"
+            />
+          </div>
+          <div className="table-wrap">
+            <table className="data">
+              <thead>
+                <tr>
+                  <SortableTh label="選手" sortKey="name" sort={sort} onSort={setSort} />
+                  {shown.map((c) => (
+                    <SortableTh
+                      key={c.key}
+                      label={c.label}
+                      sortKey={c.key}
+                      sort={sort}
+                      onSort={setSort}
+                      numeric={c.kind !== 'meta'}
+                    />
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {processed.map((r) => (
+                  <StatRowView key={r.player.id} row={r} seasonId={currentSeason.id} shown={shown} />
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(rows ?? []).map((r) => (
-                <StatRowView key={r.player.id} row={r} seasonId={currentSeason.id} shown={shown} />
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
       <p className="info-line mt-16">終OVR（シーズン終了時OVR）・平均評価などは行ごとに保存され、OVR増減は前シーズンの終OVR（初年度は加入時OVR）との差で自動計算されます。</p>
     </div>

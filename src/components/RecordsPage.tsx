@@ -18,6 +18,7 @@ export function RecordsPage() {
   );
   const [editing, setEditing] = useState<TeamRecord | null>(null);
   const [creatingType, setCreatingType] = useState<CompetitionType | null>(null);
+  const [query, setQuery] = useState('');
 
   if (!currentSeason || !currentCareer) {
     return (
@@ -27,7 +28,9 @@ export function RecordsPage() {
     );
   }
 
-  const all = records ?? [];
+  const q = query.trim().toLowerCase();
+  const all = (records ?? []).filter((r) =>
+    !q || `${r.competition_name} ${r.final_position} ${r.note}`.toLowerCase().includes(q));
 
   return (
     <div>
@@ -36,6 +39,16 @@ export function RecordsPage() {
           <h1>チーム成績</h1>
           <span className="sub">{currentSeason.label}・{all.length} 大会</span>
         </div>
+      </div>
+
+      <div className="filter-bar">
+        <input
+          className="filter-bar__search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="大会名・順位・メモで検索"
+        />
+        {q && <button className="btn btn--ghost" style={{ padding: '8px 12px' }} onClick={() => setQuery('')}>クリア</button>}
       </div>
 
       {COMPETITION_TYPES.map((type) => {

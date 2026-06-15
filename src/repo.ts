@@ -320,10 +320,37 @@ export async function getPlayerAggregates(playerId: string): Promise<PlayerAggre
   return { appearances, goals, assists, currentOvr };
 }
 
+/** キャリア全選手の集計をまとめて取得（一覧の並び替え用）。playerId→集計。 */
+export async function getAllPlayerAggregates(careerId: string): Promise<Map<string, PlayerAggregates>> {
+  const players = await listPlayers(careerId);
+  const ids = players.map((p) => p.id);
+  const stats = ids.length ? await db.seasonStats.where('player_id').anyOf(ids).toArray() : [];
+  const seasons = await db.seasons.where('career_id').equals(careerId).sortBy('order');
+  const orderById = new Map(seasons.map((s) => [s.id, s.order]));
+
+  const map = new Map<string, PlayerAggregates>();
+  for (const p of players) map.set(p.id, { appearances: 0, goals: 0, assists: 0, currentOvr: null });
+  const latestOrder = new Map<string, number>();
+  for (const s of stats) {
+    const a = map.get(s.player_id);
+    if (!a) continue;
+    a.appearances += s.appearances ?? 0;
+    a.goals += s.goals ?? 0;
+    a.assists += s.assists ?? 0;
+    if (s.end_ovr != null) {
+      const ord = orderById.get(s.season_id) ?? 0;
+      if (ord >= (latestOrder.get(s.player_id) ?? -1)) {
+        latestOrder.set(s.player_id, ord);
+        a.currentOvr = s.end_ovr;
+      }
+    }
+  }
+  return map;
+}
+
 // ============================================================
 // 段階3: シーズンスタッツ
 // ============================================================
-
 export interface StatRow {
   player: Player;
   stat: SeasonStats | null;
@@ -703,4 +730,73 @@ export async function importCareerBundle(bundle: MeisterwegBundle): Promise<stri
     });
 
   return careerId;
+}
+
+// ============================================================
+// ダッシュボード用集計
+// ============================================================
+
+export interface DashboardData {
+  seasonId: string | 'all';
+  totalPlayers: number;       // 在籍選手数
+  academyCount: number;       // アカデミー出身の在籍数
+  topScorers: { name: string; value: number }[];
+  topAssists: { name: string; value: number }[];
+  topRated: { name: string; value: number }[];
+  records: TeamRecord[];      // 対象シーズンのチーム成績
+  goalsFor: number;
+  goalsAgainst: number;
+  wins: number; draws: number; losses: number;
+}
+
+export async function getDashboardData(careerId: string, seasonId: string | 'all'): Promise<DashboardData> {
+  const players = await listPlayers(careerId);
+  const roster = players.filter((p) => p.current_status !== '退団');
+  const byId = new Map(players.map((p) => [p.id, p]));
+  const ids = players.map((p) => p.id);
+
+  let stats = ids.length ? await db.seasonStats.where('player_id').anyOf(ids).toArray() : [];
+  if (seasonId !== 'all') stats = stats.filter((s) => s.season_id === seasonId);
+
+  // 選手ごとに合計
+  const agg = new Map<string, { goals: number; assists: number; ratingSum: number; ratingN: number }>();
+  for (const s of stats) {
+    const a = agg.get(s.player_id) ?? { goals: 0, assists: 0, ratingSum: 0, ratingN: 0 };
+    a.goals += s.goals ?? 0;
+    a.assists += s.assists ?? 0;
+    if (s.avg_rating != null) { a.ratingSum += s.avg_rating; a.ratingN += 1; }
+    agg.set(s.player_id, a);
+  }
+  const name = (id: string) => byId.get(id)?.name ?? '—';
+  const entries = [...agg.entries()];
+  const topScorers = entries.filter(([, a]) => a.goals > 0)
+    .map(([id, a]) => ({ name: name(id), value: a.goals }))
+    .sort((x, y) => y.value - x.value).slice(0, 5);
+  const topAssists = entries.filter(([, a]) => a.assists > 0)
+    .map(([id, a]) => ({ name: name(id), value: a.assists }))
+    .sort((x, y) => y.value - x.value).slice(0, 5);
+  const topRated = entries.filter(([, a]) => a.ratingN > 0)
+    .map(([id, a]) => ({ name: name(id), value: Math.round((a.ratingSum / a.ratingN) * 100) / 100 }))
+    .sort((x, y) => y.value - x.value).slice(0, 5);
+
+  const seasonIds = seasonId === 'all'
+    ? (await listSeasons(careerId)).map((s) => s.id)
+    : [seasonId];
+  let records = seasonIds.length ? await db.teamRecords.where('season_id').anyOf(seasonIds).toArray() : [];
+  const wins = records.reduce((n, r) => n + r.wins, 0);
+  const draws = records.reduce((n, r) => n + r.draws, 0);
+  const losses = records.reduce((n, r) => n + r.losses, 0);
+  const goalsFor = records.reduce((n, r) => n + r.goals_for, 0);
+  const goalsAgainst = records.reduce((n, r) => n + r.goals_against, 0);
+  // 表示用：リーグ→国内カップ→大陸間 の順
+  const order: Record<string, number> = { 'リーグ': 0, '国内カップ': 1, '大陸間クラブ選手権': 2 };
+  records = records.slice().sort((a, b) => (order[a.competition_type] ?? 9) - (order[b.competition_type] ?? 9));
+
+  return {
+    seasonId,
+    totalPlayers: roster.length,
+    academyCount: roster.filter((p) => p.is_academy).length,
+    topScorers, topAssists, topRated,
+    records, goalsFor, goalsAgainst, wins, draws, losses,
+  };
 }
